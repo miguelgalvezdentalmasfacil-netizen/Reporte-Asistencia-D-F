@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Asistencia · Dental Más Fácil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#F6F8F6;
+    --surface:#FFFFFF;
+    --ink:#122B27;
+    --muted:#5E7975;
+    --muted-2:#8CA3A0;
+    --line:#DDE7E3;
+    --line-soft:#EAF0EE;
+    --primary:#0F7A6E;
+    --primary-dark:#0A5850;
+    --primary-tint:#E5F3F0;
+    --accent:#E7A23C;
+    --accent-tint:#FBF0DC;
+    --violet:#6E5CC7;
+    --violet-tint:#EDEAFA;
+    --slate:#5B7280;
+    --slate-tint:#EAEEF1;
+    --danger:#C4573F;
+    --shadow: 0 1px 2px rgba(18,43,39,0.04), 0 8px 24px -12px rgba(18,43,39,0.14);
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  ::selection{background:var(--primary-tint);color:var(--primary-dark);}
+
+  .wrap{max-width:1320px;margin:0 auto;padding:28px 32px 64px;}
+
+  /* ---------- HEADER ---------- */
+  header.top{
+    display:flex;align-items:center;justify-content:space-between;
+    gap:20px;margin-bottom:26px;flex-wrap:wrap;
+  }
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand-mark{
+    width:46px;height:46px;border-radius:12px;
+    background:linear-gradient(155deg, var(--primary), var(--primary-dark));
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-family:'Fraunces',serif;font-weight:600;font-size:16px;letter-spacing:0.5px;
+    box-shadow:var(--shadow);
+    flex-shrink:0;
+  }
+  .brand-text h1{
+    font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0;line-height:1.15;
+    letter-spacing:-0.2px;
+  }
+  .brand-text p{margin:2px 0 0;font-size:13px;color:var(--muted);}
+  .today-badge{
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;
+    padding:9px 16px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;
+    box-shadow:var(--shadow);
+  }
+  .today-badge strong{color:var(--ink);font-weight:600;text-transform:capitalize;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+
+  .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .conn-status{
+    display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);
+    border-radius:999px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--muted);
+    box-shadow:var(--shadow);
+  }
+  .conn-status .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--muted-2);flex-shrink:0;}
+  .conn-status.on .conn-dot{background:#2E9E5B;}
+  .conn-status.on{color:#1E7A45;}
+  .conn-status.off .conn-dot{background:var(--danger);}
+  .conn-status.off{color:var(--danger);}
+  .conn-status.checking .conn-dot{background:var(--accent);animation:pulse 1.1s infinite ease-in-out;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  .gear-btn{
+    width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);
+    box-shadow:var(--shadow);transition:border-color .15s ease, color .15s ease, transform .15s ease;
+    flex-shrink:0;
+  }
+  .gear-btn:hover{border-color:var(--primary);color:var(--primary);transform:rotate(28deg);}
+  .gear-btn svg{width:18px;height:18px;}
+
+  /* ---------- SETTINGS MODAL ---------- */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(18,43,39,0.45);z-index:100;
+    align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px);
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--surface);border-radius:16px;max-width:460px;width:100%;
+    box-shadow:0 20px 60px -20px rgba(18,43,39,0.4);overflow:hidden;
+  }
+  .modal-head{padding:20px 22px 14px;border-bottom:1px solid var(--line-soft);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .modal-head .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--primary);font-weight:700;}
+  .modal-head h2{font-family:'Fraunces',serif;font-weight:600;font-size:18px;margin:4px 0 0;}
+  .modal-close{border:none;background:none;color:var(--muted-2);font-size:18px;cursor:pointer;line-height:1;padding:4px;}
+  .modal-close:hover{color:var(--ink);}
+  .modal-body{padding:18px 22px 22px;}
+  .modal-body p{font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 14px;}
+  .modal-body input[type=text]{
+    width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;
+    font-family:'IBM Plex Mono',monospace;color:var(--ink);background:var(--paper);outline:none;
+  }
+  .modal-body input[type=text]:focus{border-color:var(--primary);background:var(--surface);}
+  .modal-actions{display:flex;gap:10px;margin-top:16px;}
+  .modal-actions .submit-btn{margin-top:0;}
+  .btn-secondary{
+    padding:12px 16px;border-radius:9px;border:1px solid var(--line);background:var(--surface);
+    color:var(--muted);font-weight:600;font-size:13.5px;cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .btn-secondary:hover{border-color:var(--muted-2);color:var(--ink);}
+  .modal-msg{font-size:12.5px;margin-top:12px;display:none;padding:9px 11px;border-radius:8px;}
+  .modal-msg.ok{display:block;background:var(--primary-tint);color:var(--primary-dark);}
+  .modal-msg.err{display:block;background:#FBEAE6;color:var(--danger);}
+
+  /* ---------- CLINIC STRIP (signature element) ---------- */
+  .clinic-strip{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;
+  }
+  .clinic-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;cursor:pointer;position:relative;overflow:hidden;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    box-shadow:var(--shadow);
+  }
+  .clinic-card:hover{transform:translateY(-2px);}
+  .clinic-card.active{
+    border-color:var(--primary);
+    box-shadow:0 0 0 3px var(--primary-tint), var(--shadow);
+  }
+  .clinic-card .ciudad{
+    font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted-2);font-weight:600;
+  }
+  .clinic-card .nombre{
+    font-family:'Fraunces',serif;font-size:17px;font-weight:600;margin:3px 0 12px;color:var(--ink);
+  }
+  .clinic-card .count-row{display:flex;align-items:baseline;justify-content:space-between;}
+  .clinic-card .count{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--primary-dark);}
+  .clinic-card .count-label{font-size:11px;color:var(--muted-2);}
+  .clinic-card .bar-track{height:4px;border-radius:2px;background:var(--line-soft);margin-top:10px;overflow:hidden;}
+  .clinic-card .bar-fill{height:100%;background:var(--primary);border-radius:2px;transition:width .4s ease;}
+
+  /* ---------- LAYOUT ---------- */
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:22px;align-items:start;}
+  @media (max-width:980px){ .grid{grid-template-columns:1fr;} .clinic-strip{grid-template-columns:repeat(2,1fr);} }
+
+  .panel{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .panel-head{
+    padding:18px 20px 14px;border-bottom:1px solid var(--line-soft);
+  }
+  .panel-head .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--primary);font-weight:700;}
+  .panel-head h2{font-family:'Fraunces',serif;font-weight:600;font-size:19px;margin:4px 0 0;}
+  .panel-body{padding:18px 20px 20px;}
+
+  /* form */
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:7px;}
+  .field input[type=text], .field input[type=date], .field select{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;
+    font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);background:var(--paper);
+    outline:none;transition:border-color .15s ease, background .15s ease;
+  }
+  .field input:focus, .field select:focus{border-color:var(--primary);background:var(--surface);}
+  .field input::placeholder{color:var(--muted-2);}
+  datalist{}
+
+  .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    padding:8px 14px;border:1px solid var(--line);border-radius:999px;font-size:13px;font-weight:600;
+    color:var(--muted);cursor:pointer;background:var(--paper);user-select:none;
+    transition:all .12s ease;
+  }
+  .chip:hover{border-color:var(--muted-2);}
+  .chip.sel-paquete.active{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .chip.sel-origen.active{background:var(--violet);border-color:var(--violet);color:#fff;}
+
+  .submit-btn{
+    width:100%;padding:12px 14px;border:none;border-radius:9px;background:var(--primary);
+    color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;margin-top:4px;
+    transition:background .15s ease, transform .1s ease;
+    font-family:'Inter',sans-serif;
+  }
+  .submit-btn:hover{background:var(--primary-dark);}
+  .submit-btn:active{transform:scale(0.99);}
+  .form-error{font-size:12.5px;color:var(--danger);margin-top:8px;display:none;}
+
+  .conn-note{
+    margin-top:16px;padding:12px 13px;border-radius:10px;background:var(--accent-tint);
+    border:1px solid #F0DBAE;font-size:12px;color:#8A6317;line-height:1.5;
+  }
+
+  /* stats row */
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  .mini-stat{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px 16px;box-shadow:var(--shadow);
+  }
+  .mini-stat .label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-2);font-weight:700;}
+  .mini-stat .value{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;margin-top:6px;color:var(--ink);}
+  .mini-stat .sub{font-size:11.5px;color:var(--muted);margin-top:3px;}
+  @media (max-width:700px){.stats-row{grid-template-columns:repeat(2,1fr);}}
+
+  /* charts row */
+  .charts-row{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:18px;}
+  .chart-card{padding:16px 18px;height:220px;}
+  .chart-card h3{font-size:13px;font-weight:700;color:var(--muted);margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em;}
+  @media (max-width:700px){.charts-row{grid-template-columns:1fr;}}
+
+  /* table panel */
+  .table-panel .panel-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 16px;}
+  .filters select, .filters input{
+    padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;
+    font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);outline:none;
+  }
+  .filters input{flex:1;min-width:160px;}
+  .filters select:focus, .filters input:focus{border-color:var(--primary);}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead th{
+    text-align:left;padding:10px 20px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted-2);font-weight:700;border-bottom:1px solid var(--line);background:var(--paper);
+  }
+  tbody td{padding:12px 20px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
+  tbody tr:hover{background:var(--paper);}
+  tbody tr:last-child td{border-bottom:none;}
+  .pac-name{font-weight:600;}
+  .pac-meta{font-size:11.5px;color:var(--muted-2);margin-top:1px;}
+  .badge{
+    display:inline-block;padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;
+  }
+  .badge.individual{background:var(--primary-tint);color:var(--primary-dark);}
+  .badge.dual{background:var(--accent-tint);color:#8A6317;}
+  .badge.familiar{background:var(--violet-tint);color:var(--violet);}
+  .badge.propia{background:var(--slate-tint);color:var(--slate);}
+  .badge.convenio{background:var(--violet-tint);color:var(--violet);}
+  .del-btn{
+    border:none;background:none;color:var(--muted-2);cursor:pointer;font-size:16px;line-height:1;
+    padding:4px 6px;border-radius:6px;
+  }
+  .del-btn:hover{color:var(--danger);background:#FBEAE6;}
+  .empty-state{padding:48px 20px;text-align:center;color:var(--muted-2);}
+  .empty-state .glyph{font-family:'Fraunces',serif;font-size:34px;color:var(--line);margin-bottom:8px;}
+  .empty-state p{margin:4px 0 0;font-size:13px;}
+
+  .count-tag{
+    background:var(--primary-tint);color:var(--primary-dark);font-size:12px;font-weight:700;
+    padding:5px 12px;border-radius:999px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="brand-mark">DMF</div>
+      <div class="brand-text">
+        <h1>Registro de Asistencia</h1>
+        <p>Dental Más Fácil · Tijuana · Mexicali · Ensenada</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="conn-status off" id="connStatus"><span class="conn-dot"></span><span id="connStatusText">Sin conectar</span></div>
+      <div class="today-badge"><span class="dot"></span> <span>Hoy:</span> <strong id="fechaHoy">—</strong></div>
+      <button class="gear-btn" id="gearBtn" title="Configurar conexión con Google Sheets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">Conexión</div>
+          <h2>URL de la Web App</h2>
+        </div>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Pega aquí la URL que te dio Apps Script al implementar el proyecto como aplicación web (termina en <code>/exec</code>). Así el formulario guarda cada registro directamente en tu Google Sheet.</p>
+        <input type="text" id="urlInput" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+        <div class="modal-actions">
+          <button class="btn-secondary" id="urlClearBtn">Quitar conexión</button>
+          <button class="submit-btn" id="urlSaveBtn" style="flex:1;">Guardar y conectar</button>
+        </div>
+        <div class="modal-msg" id="modalMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CLINIC SIGNATURE STRIP -->
+  <div class="clinic-strip" id="clinicStrip"></div>
+
+  <div class="grid">
+
+    <!-- FORM -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="eyebrow">Nuevo registro</div>
+        <h2>Paciente que asistió</h2>
+      </div>
+      <div class="panel-body">
+        <form id="regForm">
+          <div class="field">
+            <label for="nombre">Nombre del paciente</label>
+            <input type="text" id="nombre" placeholder="Ej. María González Ruiz" autocomplete="off">
+          </div>
+
+          <div class="field">
+            <label for="clinica">Clínica que asistió</label>
+            <select id="clinica">
+              <option value="" disabled selected>Selecciona una clínica</option>
+              <option value="Tijuana">Tijuana</option>
+              <option value="Mexicali - Obregón">Mexicali - Obregón</option>
+              <option value="Mexicali - Villa Verde">Mexicali - Villa Verde</option>
+              <option value="Ensenada">Ensenada</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="asesor">Asesor correspondiente</label>
+            <input type="text" id="asesor" list="asesorList" placeholder="Nombre del asesor" autocomplete="off">
+            <datalist id="asesorList"></datalist>
+          </div>
+
+          <div class="field">
+            <label>Tipo de paquete</label>
+            <div class="chip-group" id="paqueteChips">
+              <div class="chip sel-paquete" data-val="Individual">Individual (1 persona)</div>
+              <div class="chip sel-paquete" data-val="Dual">Dual</div>
+              <div class="chip sel-paquete" data-val="Familiar">Familiar</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Origen</label>
+            <div class="chip-group" id="origenChips">
+              <div class="chip sel-origen" data-val="Cuenta propia">Cuenta propia</div>
+              <div class="chip sel-origen" data-val="Convenio">Convenio</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="fecha">Fecha de asistencia</label>
+            <input type="date" id="fecha">
+          </div>
+
+          <button type="submit" class="submit-btn">Registrar asistencia</button>
+          <div class="form-error" id="formError">Completa nombre, clínica, paquete y origen antes de registrar.</div>
+        </form>
+
+        <div class="conn-note" id="connNote">
+          <strong>Sin conectar todavía:</strong> los registros solo se guardan en esta sesión del navegador. Da clic en el engranaje ⚙️ de arriba y pega la URL de tu Web App para que se guarden en Google Sheets.
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div>
+      <div class="stats-row">
+        <div class="mini-stat">
+          <div class="label">Total registrados</div>
+          <div class="value" id="statTotal">0</div>
+          <div class="sub">en las 4 clínicas</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Individual</div>
+          <div class="value" id="statIndividual">0</div>
+          <div class="sub" id="statIndividualPct">0% del total</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Dual + Familiar</div>
+          <div class="value" id="statDualFam">0</div>
+          <div class="sub" id="statDualFamPct">0% del total</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Convenio</div>
+          <div class="value" id="statConvenio">0</div>
+          <div class="sub" id="statConvenioPct">0% del total</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="panel chart-card">
+          <h3>Asistencia por clínica</h3>
+          <canvas id="chartClinicas"></canvas>
+        </div>
+        <div class="panel chart-card">
+          <h3>Tipo de paquete</h3>
+          <canvas id="chartPaquetes"></canvas>
+        </div>
+      </div>
+
+      <div class="panel table-panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">Bitácora</div>
+            <h2>Pacientes registrados</h2>
+          </div>
+          <span class="count-tag" id="tableCount">0 registros</span>
+        </div>
+        <div class="filters">
+          <input type="text" id="fSearch" placeholder="Buscar paciente o asesor...">
+          <select id="fClinica">
+            <option value="">Todas las clínicas</option>
+            <option value="Tijuana">Tijuana</option>
+            <option value="Mexicali - Obregón">Mexicali - Obregón</option>
+            <option value="Mexicali - Villa Verde">Mexicali - Villa Verde</option>
+            <option value="Ensenada">Ensenada</option>
+          </select>
+          <select id="fPaquete">
+            <option value="">Todos los paquetes</option>
+            <option value="Individual">Individual</option>
+            <option value="Dual">Dual</option>
+            <option value="Familiar">Familiar</option>
+          </select>
+          <select id="fOrigen">
+            <option value="">Propia y convenio</option>
+            <option value="Cuenta propia">Cuenta propia</option>
+            <option value="Convenio">Convenio</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Paciente</th>
+                <th>Clínica</th>
+                <th>Asesor</th>
+                <th>Paquete</th>
+                <th>Origen</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div class="empty-state" id="emptyState">
+            <div class="glyph">＋</div>
+            <p>Aún no hay pacientes registrados. Usa el formulario para agregar el primero.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const CLINICAS = ["Tijuana", "Mexicali - Obregón", "Mexicali - Villa Verde", "Ensenada"];
+let registros = [];
+let selPaquete = null, selOrigen = null, clinicFilterActive = null;
+let chartClinicas, chartPaquetes;
+let APPS_SCRIPT_URL = localStorage.getItem('dmf_apps_script_url') || '';
+
+// ---------- header date ----------
+document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
+document.getElementById('fecha').valueAsDate = new Date();
+
+// ---------- conexión con Apps Script ----------
+function setConnStatus(state, text){
+  const el = document.getElementById('connStatus');
+  el.className = 'conn-status ' + state;
+  document.getElementById('connStatusText').textContent = text;
+}
+
+function refreshConnNote(){
+  const note = document.getElementById('connNote');
+  if(APPS_SCRIPT_URL){
+    note.innerHTML = '<strong>Conectado.</strong> Cada registro nuevo se guarda directo en tu Google Sheet.';
+  } else {
+    note.innerHTML = '<strong>Sin conectar todavía:</strong> los registros solo se guardan en esta sesión del navegador. Da clic en el engranaje ⚙️ de arriba y pega la URL de tu Web App para que se guarden en Google Sheets.';
+  }
+}
+
+async function cargarDesdeSheets(){
+  if(!APPS_SCRIPT_URL){ setConnStatus('off', 'Sin conectar'); refreshConnNote(); return; }
+  setConnStatus('checking', 'Conectando...');
+  try{
+    const res = await fetch(APPS_SCRIPT_URL, { method:'GET' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    registros = data.map(r => ({ ...r, id: r.id || Date.now() + Math.random() }));
+    setConnStatus('on', 'Conectado');
+    updateAsesorList();
+    renderAll();
+  } catch(err){
+    setConnStatus('off', 'Sin conexión');
+  }
+  refreshConnNote();
+}
+
+async function guardarEnSheets(registro){
+  if(!APPS_SCRIPT_URL) return;
+  try{
+    await fetch(APPS_SCRIPT_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // evita preflight CORS con Apps Script
+      body: JSON.stringify(registro)
+    });
+    setConnStatus('on', 'Conectado');
+  } catch(err){
+    setConnStatus('off', 'Sin conexión — guardado solo local');
+  }
+}
+
+// ---------- modal de configuración ----------
+const modalOverlay = document.getElementById('modalOverlay');
+const modalMsg = document.getElementById('modalMsg');
+
+function openModal(){
+  document.getElementById('urlInput').value = APPS_SCRIPT_URL;
+  modalMsg.className = 'modal-msg';
+  modalOverlay.classList.add('show');
+}
+function closeModal(){ modalOverlay.classList.remove('show'); }
+
+document.getElementById('gearBtn').onclick = openModal;
+document.getElementById('modalClose').onclick = closeModal;
+modalOverlay.addEventListener('click', (e) => { if(e.target === modalOverlay) closeModal(); });
+
+document.getElementById('urlClearBtn').onclick = () => {
+  APPS_SCRIPT_URL = '';
+  localStorage.removeItem('dmf_apps_script_url');
+  setConnStatus('off', 'Sin conectar');
+  refreshConnNote();
+  document.getElementById('urlInput').value = '';
+  modalMsg.className = 'modal-msg ok';
+  modalMsg.textContent = 'Conexión eliminada. Los registros ahora solo se guardan localmente.';
+};
+
+document.getElementById('urlSaveBtn').onclick = async () => {
+  const val = document.getElementById('urlInput').value.trim();
+  if(!val || !val.startsWith('https://script.google.com/')){
+    modalMsg.className = 'modal-msg err';
+    modalMsg.textContent = 'Esa URL no parece de Apps Script. Debe empezar con https://script.google.com/ y terminar en /exec';
+    return;
+  }
+  APPS_SCRIPT_URL = val;
+  localStorage.setItem('dmf_apps_script_url', val);
+  modalMsg.className = 'modal-msg ok';
+  modalMsg.textContent = 'Guardado. Probando conexión...';
+  await cargarDesdeSheets();
+  if(APPS_SCRIPT_URL){
+    modalMsg.className = 'modal-msg ok';
+    modalMsg.textContent = '¡Conectado! Ya puedes cerrar esta ventana.';
+  }
+};
+
+// ---------- clinic strip ----------
+function renderClinicStrip(){
+  const strip = document.getElementById('clinicStrip');
+  strip.innerHTML = '';
+  const max = Math.max(1, ...CLINICAS.map(c => registros.filter(r => r.clinica === c).length));
+  CLINICAS.forEach(c => {
+    const count = registros.filter(r => r.clinica === c).length;
+    const [ciudad, sede] = c.includes(' - ') ? c.split(' - ') : [c, ''];
+    const card = document.createElement('div');
+    card.className = 'clinic-card' + (clinicFilterActive === c ? ' active' : '');
+    card.innerHTML = `
+      <div class="ciudad">${ciudad}</div>
+      <div class="nombre">${sede || ciudad}</div>
+      <div class="count-row">
+        <span class="count">${count}</span>
+        <span class="count-label">pacientes</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(count/max*100).toFixed(0)}%"></div></div>
+    `;
+    card.onclick = () => {
+      clinicFilterActive = (clinicFilterActive === c) ? null : c;
+      document.getElementById('fClinica').value = clinicFilterActive || '';
+      renderAll();
+    };
+    strip.appendChild(card);
+  });
+}
+
+// ---------- chip selectors ----------
+document.querySelectorAll('.sel-paquete').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('.sel-paquete').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    selPaquete = chip.dataset.val;
+  };
+});
+document.querySelectorAll('.sel-origen').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('.sel-origen').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    selOrigen = chip.dataset.val;
+  };
+});
+
+// ---------- form submit ----------
+document.getElementById('regForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const nombre = document.getElementById('nombre').value.trim();
+  const clinica = document.getElementById('clinica').value;
+  const asesor = document.getElementById('asesor').value.trim();
+  const fecha = document.getElementById('fecha').value;
+  const errorEl = document.getElementById('formError');
+
+  if(!nombre || !clinica || !selPaquete || !selOrigen){
+    errorEl.style.display = 'block';
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  const nuevoRegistro = {
+    id: Date.now(),
+    nombre, clinica, asesor: asesor || '—',
+    paquete: selPaquete, origen: selOrigen,
+    fecha: fecha || new Date().toISOString().slice(0,10)
+  };
+  registros.unshift(nuevoRegistro);
+  guardarEnSheets(nuevoRegistro);
+
+  // reset form
+  document.getElementById('regForm').reset();
+  document.getElementById('fecha').valueAsDate = new Date();
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  selPaquete = null; selOrigen = null;
+
+  updateAsesorList();
+  renderAll();
+});
+
+function updateAsesorList(){
+  const list = document.getElementById('asesorList');
+  const nombres = [...new Set(registros.map(r => r.asesor).filter(a => a !== '—'))];
+  list.innerHTML = nombres.map(n => `<option value="${n}">`).join('');
+}
+
+function eliminar(id){
+  registros = registros.filter(r => r.id !== id);
+  renderAll();
+}
+
+// ---------- stats ----------
+function renderStats(){
+  const total = registros.length;
+  const individual = registros.filter(r => r.paquete === 'Individual').length;
+  const dualFam = registros.filter(r => r.paquete === 'Dual' || r.paquete === 'Familiar').length;
+  const convenio = registros.filter(r => r.origen === 'Convenio').length;
+  const pct = (n) => total ? Math.round(n/total*100) + '% del total' : '0% del total';
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statIndividual').textContent = individual;
+  document.getElementById('statIndividualPct').textContent = pct(individual);
+  document.getElementById('statDualFam').textContent = dualFam;
+  document.getElementById('statDualFamPct').textContent = pct(dualFam);
+  document.getElementById('statConvenio').textContent = convenio;
+  document.getElementById('statConvenioPct').textContent = pct(convenio);
+}
+
+// ---------- charts ----------
+function renderCharts(){
+  const ctx1 = document.getElementById('chartClinicas').getContext('2d');
+  const dataClinicas = CLINICAS.map(c => registros.filter(r => r.clinica === c).length);
+  if(chartClinicas) chartClinicas.destroy();
+  chartClinicas = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: CLINICAS.map(c => c.replace('Mexicali - ', '')),
+      datasets: [{ data: dataClinicas, backgroundColor: '#0F7A6E', borderRadius: 6, maxBarThickness: 42 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{
+        y:{ beginAtZero:true, ticks:{precision:0, color:'#5E7975', font:{size:11}}, grid:{color:'#EAF0EE'} },
+        x:{ ticks:{color:'#5E7975', font:{size:11}}, grid:{display:false} }
+      }
+    }
+  });
+
+  const ctx2 = document.getElementById('chartPaquetes').getContext('2d');
+  const paqueteData = ['Individual','Dual','Familiar'].map(p => registros.filter(r => r.paquete === p).length);
+  if(chartPaquetes) chartPaquetes.destroy();
+  chartPaquetes = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: ['Individual','Dual','Familiar'],
+      datasets: [{ data: paqueteData, backgroundColor: ['#0F7A6E','#E7A23C','#6E5CC7'], borderWidth:0 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11}, color:'#5E7975' } } }
+    }
+  });
+}
+
+// ---------- table ----------
+function badgeClass(val, type){
+  if(type === 'paquete') return val.toLowerCase();
+  return val === 'Convenio' ? 'convenio' : 'propia';
+}
+
+function renderTable(){
+  const search = document.getElementById('fSearch').value.toLowerCase();
+  const fClinica = document.getElementById('fClinica').value;
+  const fPaquete = document.getElementById('fPaquete').value;
+  const fOrigen = document.getElementById('fOrigen').value;
+
+  const filtered = registros.filter(r => {
+    if(fClinica && r.clinica !== fClinica) return false;
+    if(fPaquete && r.paquete !== fPaquete) return false;
+    if(fOrigen && r.origen !== fOrigen) return false;
+    if(search && !(r.nombre.toLowerCase().includes(search) || r.asesor.toLowerCase().includes(search))) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('tbody');
+  const emptyState = document.getElementById('emptyState');
+  document.getElementById('tableCount').textContent = filtered.length + (filtered.length === 1 ? ' registro' : ' registros');
+
+  if(filtered.length === 0){
+    tbody.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td>
+        <div class="pac-name">${r.nombre}</div>
+        <div class="pac-meta">${new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-MX', {day:'numeric', month:'short', year:'numeric'})}</div>
+      </td>
+      <td>${r.clinica}</td>
+      <td>${r.asesor}</td>
+      <td><span class="badge ${badgeClass(r.paquete,'paquete')}">${r.paquete}</span></td>
+      <td><span class="badge ${badgeClass(r.origen,'origen')}">${r.origen}</span></td>
+      <td><button class="del-btn" onclick="eliminar(${r.id})" title="Eliminar registro">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+['fSearch','fClinica','fPaquete','fOrigen'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    if(id === 'fClinica') clinicFilterActive = document.getElementById('fClinica').value || null;
+    renderAll();
+  });
+});
+
+function renderAll(){
+  renderClinicStrip();
+  renderStats();
+  renderCharts();
+  renderTable();
+}
+
+renderAll();
+cargarDesdeSheets();
+</script>
+
+</body>
+</html>
