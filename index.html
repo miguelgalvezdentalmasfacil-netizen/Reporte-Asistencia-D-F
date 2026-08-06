@@ -218,8 +218,9 @@
 
   /* charts row */
   .charts-row{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:18px;}
-  .chart-card{padding:16px 18px;height:220px;}
+  .chart-card{padding:16px 18px;height:240px;display:flex;flex-direction:column;position:relative;}
   .chart-card h3{font-size:13px;font-weight:700;color:var(--muted);margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em;}
+  .canvas-wrapper{flex:1;position:relative;min-height:0;width:100%;}
   @media (max-width:700px){.charts-row{grid-template-columns:1fr;}}
 
   /* table panel */
@@ -342,8 +343,13 @@
 
           <div class="field">
             <label for="asesor">Asesor correspondiente</label>
-            <input type="text" id="asesor" list="asesorList" placeholder="Nombre del asesor" autocomplete="off">
-            <datalist id="asesorList"></datalist>
+            <select id="asesor">
+              <option value="" disabled selected>Selecciona un asesor</option>
+              <option value="Miguel">Miguel</option>
+              <option value="Carlos">Carlos</option>
+              <option value="Zoe">Zoe</option>
+              <option value="Edgar">Edgar</option>
+            </select>
           </div>
 
           <div class="field">
@@ -369,7 +375,7 @@
           </div>
 
           <button type="submit" class="submit-btn">Registrar asistencia</button>
-          <div class="form-error" id="formError">Completa nombre, clínica, paquete y origen antes de registrar.</div>
+          <div class="form-error" id="formError">Completa nombre, clínica, asesor, paquete y origen antes de registrar.</div>
         </form>
 
         <div class="conn-note" id="connNote">
@@ -406,11 +412,15 @@
       <div class="charts-row">
         <div class="panel chart-card">
           <h3>Asistencia por clínica</h3>
-          <canvas id="chartClinicas"></canvas>
+          <div class="canvas-wrapper">
+            <canvas id="chartClinicas"></canvas>
+          </div>
         </div>
         <div class="panel chart-card">
           <h3>Tipo de paquete</h3>
-          <canvas id="chartPaquetes"></canvas>
+          <div class="canvas-wrapper">
+            <canvas id="chartPaquetes"></canvas>
+          </div>
         </div>
       </div>
 
@@ -504,7 +514,6 @@ async function cargarDesdeSheets(){
     const data = await res.json();
     registros = data.map(r => ({ ...r, id: r.id || Date.now() + Math.random() }));
     setConnStatus('on', 'Conectado');
-    updateAsesorList();
     renderAll();
   } catch(err){
     setConnStatus('off', 'Sin conexión');
@@ -600,16 +609,26 @@ function renderClinicStrip(){
 // ---------- chip selectors ----------
 document.querySelectorAll('.sel-paquete').forEach(chip => {
   chip.onclick = () => {
-    document.querySelectorAll('.sel-paquete').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    selPaquete = chip.dataset.val;
+    if (chip.classList.contains('active')) {
+      chip.classList.remove('active');
+      selPaquete = null;
+    } else {
+      document.querySelectorAll('.sel-paquete').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      selPaquete = chip.dataset.val;
+    }
   };
 });
 document.querySelectorAll('.sel-origen').forEach(chip => {
   chip.onclick = () => {
-    document.querySelectorAll('.sel-origen').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    selOrigen = chip.dataset.val;
+    if (chip.classList.contains('active')) {
+      chip.classList.remove('active');
+      selOrigen = null;
+    } else {
+      document.querySelectorAll('.sel-origen').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      selOrigen = chip.dataset.val;
+    }
   };
 });
 
@@ -618,11 +637,11 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const nombre = document.getElementById('nombre').value.trim();
   const clinica = document.getElementById('clinica').value;
-  const asesor = document.getElementById('asesor').value.trim();
+  const asesor = document.getElementById('asesor').value;
   const fecha = document.getElementById('fecha').value;
   const errorEl = document.getElementById('formError');
 
-  if(!nombre || !clinica || !selPaquete || !selOrigen){
+  if(!nombre || !clinica || !asesor || !selPaquete || !selOrigen){
     errorEl.style.display = 'block';
     return;
   }
@@ -643,15 +662,8 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   selPaquete = null; selOrigen = null;
 
-  updateAsesorList();
   renderAll();
 });
-
-function updateAsesorList(){
-  const list = document.getElementById('asesorList');
-  const nombres = [...new Set(registros.map(r => r.asesor).filter(a => a !== '—'))];
-  list.innerHTML = nombres.map(n => `<option value="${n}">`).join('');
-}
 
 function eliminar(id){
   registros = registros.filter(r => r.id !== id);
