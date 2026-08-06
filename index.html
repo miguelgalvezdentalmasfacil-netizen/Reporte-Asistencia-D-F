@@ -251,6 +251,7 @@
   .badge.familiar{background:var(--violet-tint);color:var(--violet);}
   .badge.propia{background:var(--slate-tint);color:var(--slate);}
   .badge.convenio{background:var(--violet-tint);color:var(--violet);}
+  .badge.neutro{background:var(--line-soft);color:var(--muted);}
   .del-btn{
     border:none;background:none;color:var(--muted-2);cursor:pointer;font-size:16px;line-height:1;
     padding:4px 6px;border-radius:6px;
@@ -375,7 +376,7 @@
           </div>
 
           <button type="submit" class="submit-btn">Registrar asistencia</button>
-          <div class="form-error" id="formError">Completa nombre, clínica, asesor, paquete y origen antes de registrar.</div>
+          <div class="form-error" id="formError">Completa nombre, clínica, asesor y paquete antes de registrar.</div>
         </form>
 
         <div class="conn-note" id="connNote">
@@ -641,7 +642,7 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   const fecha = document.getElementById('fecha').value;
   const errorEl = document.getElementById('formError');
 
-  if(!nombre || !clinica || !asesor || !selPaquete || !selOrigen){
+  if(!nombre || !clinica || !asesor || !selPaquete){
     errorEl.style.display = 'block';
     return;
   }
@@ -650,7 +651,7 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   const nuevoRegistro = {
     id: Date.now(),
     nombre, clinica, asesor: asesor || '—',
-    paquete: selPaquete, origen: selOrigen,
+    paquete: selPaquete, origen: selOrigen || 'No especificado',
     fecha: fecha || new Date().toISOString().slice(0,10)
   };
   registros.unshift(nuevoRegistro);
@@ -727,7 +728,9 @@ function renderCharts(){
 // ---------- table ----------
 function badgeClass(val, type){
   if(type === 'paquete') return val.toLowerCase();
-  return val === 'Convenio' ? 'convenio' : 'propia';
+  if(val === 'Convenio') return 'convenio';
+  if(val === 'Cuenta propia') return 'propia';
+  return 'neutro';
 }
 
 function renderTable(){
