@@ -380,7 +380,7 @@
           </div>
 
           <button type="submit" class="submit-btn">Registrar asistencia</button>
-          <div class="form-error" id="formError">Completa nombre, clínica, asesor y paquete antes de registrar.</div>
+          <div class="form-error" id="formError">Completa nombre, clínica y paquete antes de registrar.</div>
         </form>
 
         <div class="conn-note" id="connNote">
@@ -636,6 +636,13 @@ document.querySelectorAll('.sel-origen').forEach(chip => {
       chip.classList.remove('active');
       selOrigen = selOrigen.filter(o => o !== val);
     } else {
+      if (val === 'Cuenta propia' && selOrigen.includes('Por asesor')) {
+        selOrigen = selOrigen.filter(o => o !== 'Por asesor');
+        document.querySelector('.sel-origen[data-val="Por asesor"]').classList.remove('active');
+      } else if (val === 'Por asesor' && selOrigen.includes('Cuenta propia')) {
+        selOrigen = selOrigen.filter(o => o !== 'Cuenta propia');
+        document.querySelector('.sel-origen[data-val="Cuenta propia"]').classList.remove('active');
+      }
       chip.classList.add('active');
       selOrigen.push(val);
     }
@@ -651,7 +658,7 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   const fecha = document.getElementById('fecha').value;
   const errorEl = document.getElementById('formError');
 
-  if(!nombre || !clinica || !asesor || !selPaquete){
+  if(!nombre || !clinica || !selPaquete){
     errorEl.style.display = 'block';
     return;
   }
@@ -659,7 +666,7 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
 
   const nuevoRegistro = {
     id: Date.now(),
-    nombre, clinica, asesor: asesor || '—',
+    nombre, clinica, asesor: asesor || 'Sin asignar',
     paquete: selPaquete, origen: selOrigen.length > 0 ? selOrigen.join(', ') : 'No especificado',
     fecha: fecha || new Date().toISOString().slice(0,10)
   };
