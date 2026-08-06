@@ -19,9 +19,9 @@
     --muted-2:#8CA3A0;
     --line:#DDE7E3;
     --line-soft:#EAF0EE;
-    --primary:#0F7A6E;
-    --primary-dark:#0A5850;
-    --primary-tint:#E5F3F0;
+    --primary:#0EA5E9;
+    --primary-dark:#0284C7;
+    --primary-tint:#E0F2FE;
     --accent:#E7A23C;
     --accent-tint:#FBF0DC;
     --violet:#6E5CC7;
@@ -706,7 +706,7 @@ function renderCharts(){
     type: 'bar',
     data: {
       labels: CLINICAS.map(c => c.replace('Mexicali - ', '')),
-      datasets: [{ data: dataClinicas, backgroundColor: '#0F7A6E', borderRadius: 6, maxBarThickness: 42 }]
+      datasets: [{ data: dataClinicas, backgroundColor: '#0EA5E9', borderRadius: 6, maxBarThickness: 42 }]
     },
     options: {
       responsive:true, maintainAspectRatio:false,
@@ -725,7 +725,7 @@ function renderCharts(){
     type: 'doughnut',
     data: {
       labels: ['Individual','Dual','Familiar'],
-      datasets: [{ data: paqueteData, backgroundColor: ['#0F7A6E','#E7A23C','#6E5CC7'], borderWidth:0 }]
+      datasets: [{ data: paqueteData, backgroundColor: ['#0EA5E9','#E7A23C','#6E5CC7'], borderWidth:0 }]
     },
     options: {
       responsive:true, maintainAspectRatio:false, cutout:'62%',
