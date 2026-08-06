@@ -368,9 +368,10 @@
           <div class="field">
             <label>Origen</label>
             <div class="chip-group" id="origenChips">
-              <div class="chip sel-origen" data-val="Cuenta propia">Cuenta propia</div>
               <div class="chip sel-origen" data-val="Convenio">Convenio</div>
-              <div class="chip sel-origen" data-val="Por asesor">Por asesor</div>
+            </div>
+            <div style="font-size:11px; color:var(--muted-2); margin-top:6px; line-height:1.3;">
+              La atribución (clínica o asesor) se calcula automáticamente según el asesor seleccionado arriba.
             </div>
           </div>
 
@@ -636,13 +637,6 @@ document.querySelectorAll('.sel-origen').forEach(chip => {
       chip.classList.remove('active');
       selOrigen = selOrigen.filter(o => o !== val);
     } else {
-      if (val === 'Cuenta propia' && selOrigen.includes('Por asesor')) {
-        selOrigen = selOrigen.filter(o => o !== 'Por asesor');
-        document.querySelector('.sel-origen[data-val="Por asesor"]').classList.remove('active');
-      } else if (val === 'Por asesor' && selOrigen.includes('Cuenta propia')) {
-        selOrigen = selOrigen.filter(o => o !== 'Cuenta propia');
-        document.querySelector('.sel-origen[data-val="Cuenta propia"]').classList.remove('active');
-      }
       chip.classList.add('active');
       selOrigen.push(val);
     }
@@ -664,10 +658,15 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   }
   errorEl.style.display = 'none';
 
+  let finalOrigen = asesor ? "Por asesor" : "Cuenta propia";
+  if (selOrigen.includes("Convenio")) {
+    finalOrigen += ", Convenio";
+  }
+
   const nuevoRegistro = {
     id: Date.now(),
     nombre, clinica, asesor: asesor || 'Sin asignar',
-    paquete: selPaquete, origen: selOrigen.length > 0 ? selOrigen.join(', ') : 'No especificado',
+    paquete: selPaquete, origen: finalOrigen,
     fecha: fecha || new Date().toISOString().slice(0,10)
   };
   registros.unshift(nuevoRegistro);
