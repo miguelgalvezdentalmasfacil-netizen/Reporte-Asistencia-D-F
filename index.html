@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --paper:#F6F8F6;
@@ -433,7 +435,11 @@
             <div class="eyebrow">Bitácora</div>
             <h2>Pacientes registrados</h2>
           </div>
-          <span class="count-tag" id="tableCount">0 registros</span>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <select id="pdfMonthSelect" style="padding:6px 10px; border-radius:6px; border:1px solid var(--line); font-family:'Inter',sans-serif; font-size:12.5px; outline:none; background:var(--paper); color:var(--ink);"></select>
+            <button id="btnDownloadPdf" class="btn-secondary" style="padding:7px 12px; font-size:12.5px; margin:0;">Descargar reporte PDF</button>
+            <span class="count-tag" id="tableCount">0 registros</span>
+          </div>
         </div>
         <div class="filters">
           <input type="text" id="fSearch" placeholder="Buscar paciente o asesor...">
@@ -789,7 +795,201 @@ function renderAll(){
   renderStats();
   renderCharts();
   renderTable();
+  actualizarMesesPdf();
 }
+
+const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+function actualizarMesesPdf() {
+  const select = document.getElementById('pdfMonthSelect');
+  if(!registros.length) {
+    select.innerHTML = '<option value="">Sin datos</option>';
+    return;
+  }
+  const months = new Set();
+  registros.forEach(r => {
+    if (r.fecha) months.add(r.fecha.substring(0, 7));
+  });
+  
+  const sortedMonths = Array.from(months).sort().reverse();
+  const currentSel = select.value;
+  
+  select.innerHTML = '';
+  sortedMonths.forEach(ym => {
+    const [y, m] = ym.split('-');
+    const opt = document.createElement('option');
+    opt.value = ym;
+    opt.textContent = `${monthNames[parseInt(m,10)-1]} ${y}`;
+    select.appendChild(opt);
+  });
+
+  if(currentSel && sortedMonths.includes(currentSel)) {
+    select.value = currentSel;
+  }
+}
+
+document.getElementById('btnDownloadPdf').onclick = () => {
+  const ym = document.getElementById('pdfMonthSelect').value;
+  if(!ym) {
+    alert("No hay datos para generar el reporte.");
+    return;
+  }
+  const filtered = registros.filter(r => r.fecha && r.fecha.startsWith(ym));
+  if(!filtered.length) {
+    alert("No hay registros en el mes seleccionado.");
+    return;
+  }
+
+  const [y, mStr] = ym.split('-');
+  const mesLabel = monthNames[parseInt(mStr,10)-1];
+  const title = `Reporte Mensual de Ventas — ${mesLabel} ${y}`;
+  const fileName = `Reporte_Ventas_DentalMasFacil_${mesLabel}_${y}.pdf`;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  const PRIMARY_COLOR = [14, 165, 233]; // #0EA5E9
+  const TEXT_COLOR = [30, 41, 59];
+
+  doc.setFont("helvetica");
+
+  // Portada/encabezado
+  doc.setFontSize(22);
+  doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+  doc.text("Dental Más Fácil", 14, 22);
+  
+  doc.setFontSize(14);
+  doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
+  doc.text(title, 14, 32);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  const now = new Date();
+  doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}`, 14, 38);
+
+  // Resumen general
+  const total = filtered.length;
+  const ind = filtered.filter(r => r.paquete === 'Individual').length;
+  const dual = filtered.filter(r => r.paquete === 'Dual').length;
+  const fam = filtered.filter(r => r.paquete === 'Familiar').length;
+  let cp = 0, conv = 0, ases = 0;
+  filtered.forEach(r => {
+    if(r.origen.includes('Cuenta propia')) cp++;
+    if(r.origen.includes('Convenio')) conv++;
+    if(r.origen.includes('Por asesor')) ases++;
+  });
+
+  doc.autoTable({
+    startY: 45,
+    theme: 'grid',
+    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10, halign: 'center' },
+    bodyStyles: { fontSize: 10, halign: 'center' },
+    head: [['Total Pacientes', 'Individual', 'Dual', 'Familiar', 'Cuenta Propia', 'Convenio', 'Por Asesor']],
+    body: [[total, ind, dual, fam, cp, conv, ases]]
+  });
+
+  let finalY = doc.lastAutoTable.finalY + 10;
+
+  // Asistencia por clínica y Rendimiento por asesor
+  const countsClinica = {};
+  CLINICAS.forEach(c => countsClinica[c] = 0);
+  filtered.forEach(r => { if(countsClinica[r.clinica] !== undefined) countsClinica[r.clinica]++; });
+
+  doc.setFontSize(12);
+  doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+  doc.text("Asistencia por clínica", 14, finalY);
+  
+  doc.autoTable({
+    startY: finalY + 4,
+    theme: 'grid',
+    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
+    head: [['Clínica', 'Pacientes']],
+    body: CLINICAS.map(c => [c, countsClinica[c]]),
+    tableWidth: 85
+  });
+  const finalY_Clinica = doc.lastAutoTable.finalY;
+
+  const countsAsesor = {};
+  filtered.forEach(r => {
+    if(r.asesor && r.asesor !== '—') countsAsesor[r.asesor] = (countsAsesor[r.asesor] || 0) + 1;
+  });
+  const asesoresSorted = Object.keys(countsAsesor).sort((a,b) => countsAsesor[b] - countsAsesor[a]);
+  
+  doc.text("Rendimiento por asesor", 110, finalY);
+  doc.autoTable({
+    startY: finalY + 4,
+    theme: 'grid',
+    margin: { left: 110 },
+    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
+    head: [['Asesor', 'Pacientes']],
+    body: asesoresSorted.length ? asesoresSorted.map(a => [a, countsAsesor[a]]) : [['Sin datos', 0]],
+    tableWidth: 85
+  });
+
+  finalY = Math.max(finalY_Clinica, doc.lastAutoTable.finalY) + 10;
+
+  // Cuenta propia por clínica y Convenio por clínica
+  const cpClinica = {};
+  const convClinica = {};
+  CLINICAS.forEach(c => { cpClinica[c] = 0; convClinica[c] = 0; });
+  filtered.forEach(r => {
+    if(r.origen.includes('Cuenta propia') && cpClinica[r.clinica] !== undefined) cpClinica[r.clinica]++;
+    if(r.origen.includes('Convenio') && convClinica[r.clinica] !== undefined) convClinica[r.clinica]++;
+  });
+
+  doc.text("Cuenta propia por clínica", 14, finalY);
+  doc.autoTable({
+    startY: finalY + 4,
+    theme: 'grid',
+    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
+    head: [['Clínica', 'C. Propia']],
+    body: CLINICAS.map(c => [c, cpClinica[c]]),
+    tableWidth: 85
+  });
+  const finalY_CP = doc.lastAutoTable.finalY;
+
+  doc.text("Convenio por clínica", 110, finalY);
+  doc.autoTable({
+    startY: finalY + 4,
+    theme: 'grid',
+    margin: { left: 110 },
+    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
+    head: [['Clínica', 'Convenio']],
+    body: CLINICAS.map(c => [c, convClinica[c]]),
+    tableWidth: 85
+  });
+
+  finalY = Math.max(finalY_CP, doc.lastAutoTable.finalY) + 15;
+
+  // Listado completo de pacientes
+  doc.text("Listado completo de pacientes", 14, finalY);
+  doc.autoTable({
+    startY: finalY + 4,
+    theme: 'striped',
+    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 9 },
+    bodyStyles: { fontSize: 8 },
+    head: [['Fecha', 'Paciente', 'Clínica', 'Asesor', 'Paquete', 'Origen']],
+    body: filtered.map(r => [
+      new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-MX', {day:'2-digit', month:'short'}),
+      r.nombre,
+      r.clinica,
+      r.asesor,
+      r.paquete,
+      r.origen
+    ])
+  });
+
+  // Footer con paginación
+  const pages = doc.internal.getNumberOfPages();
+  for (let j = 1; j <= pages; j++) {
+    doc.setPage(j);
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Página ${j} de ${pages} - Generado el ${now.toLocaleDateString('es-MX')}`, 14, doc.internal.pageSize.height - 10);
+  }
+
+  doc.save(fileName);
+};
 
 renderAll();
 cargarDesdeSheets();
