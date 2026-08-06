@@ -251,6 +251,7 @@
   .badge.familiar{background:var(--violet-tint);color:var(--violet);}
   .badge.propia{background:var(--slate-tint);color:var(--slate);}
   .badge.convenio{background:var(--violet-tint);color:var(--violet);}
+  .badge.asesor{background:var(--accent-tint);color:#8A6317;}
   .badge.neutro{background:var(--line-soft);color:var(--muted);}
   .del-btn{
     border:none;background:none;color:var(--muted-2);cursor:pointer;font-size:16px;line-height:1;
@@ -367,6 +368,7 @@
             <div class="chip-group" id="origenChips">
               <div class="chip sel-origen" data-val="Cuenta propia">Cuenta propia</div>
               <div class="chip sel-origen" data-val="Convenio">Convenio</div>
+              <div class="chip sel-origen" data-val="Por asesor">Por asesor</div>
             </div>
           </div>
 
@@ -449,9 +451,10 @@
             <option value="Familiar">Familiar</option>
           </select>
           <select id="fOrigen">
-            <option value="">Propia y convenio</option>
+            <option value="">Propia, convenio y asesor</option>
             <option value="Cuenta propia">Cuenta propia</option>
             <option value="Convenio">Convenio</option>
+            <option value="Por asesor">Por asesor</option>
           </select>
         </div>
         <div style="overflow-x:auto;">
@@ -482,7 +485,7 @@
 <script>
 const CLINICAS = ["Tijuana", "Mexicali - Obregón", "Mexicali - Villa Verde", "Ensenada"];
 let registros = [];
-let selPaquete = null, selOrigen = null, clinicFilterActive = null;
+let selPaquete = null, selOrigen = [], clinicFilterActive = null;
 let chartClinicas, chartPaquetes;
 let APPS_SCRIPT_URL = localStorage.getItem('dmf_apps_script_url') || '';
 
@@ -622,13 +625,13 @@ document.querySelectorAll('.sel-paquete').forEach(chip => {
 });
 document.querySelectorAll('.sel-origen').forEach(chip => {
   chip.onclick = () => {
+    const val = chip.dataset.val;
     if (chip.classList.contains('active')) {
       chip.classList.remove('active');
-      selOrigen = null;
+      selOrigen = selOrigen.filter(o => o !== val);
     } else {
-      document.querySelectorAll('.sel-origen').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
-      selOrigen = chip.dataset.val;
+      selOrigen.push(val);
     }
   };
 });
@@ -651,7 +654,7 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   const nuevoRegistro = {
     id: Date.now(),
     nombre, clinica, asesor: asesor || '—',
-    paquete: selPaquete, origen: selOrigen || 'No especificado',
+    paquete: selPaquete, origen: selOrigen.length > 0 ? selOrigen.join(', ') : 'No especificado',
     fecha: fecha || new Date().toISOString().slice(0,10)
   };
   registros.unshift(nuevoRegistro);
@@ -661,7 +664,7 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   document.getElementById('regForm').reset();
   document.getElementById('fecha').valueAsDate = new Date();
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  selPaquete = null; selOrigen = null;
+  selPaquete = null; selOrigen = [];
 
   renderAll();
 });
@@ -676,7 +679,7 @@ function renderStats(){
   const total = registros.length;
   const individual = registros.filter(r => r.paquete === 'Individual').length;
   const dualFam = registros.filter(r => r.paquete === 'Dual' || r.paquete === 'Familiar').length;
-  const convenio = registros.filter(r => r.origen === 'Convenio').length;
+  const convenio = registros.filter(r => r.origen.includes('Convenio')).length;
   const pct = (n) => total ? Math.round(n/total*100) + '% del total' : '0% del total';
 
   document.getElementById('statTotal').textContent = total;
@@ -730,6 +733,7 @@ function badgeClass(val, type){
   if(type === 'paquete') return val.toLowerCase();
   if(val === 'Convenio') return 'convenio';
   if(val === 'Cuenta propia') return 'propia';
+  if(val === 'Por asesor') return 'asesor';
   return 'neutro';
 }
 
@@ -742,7 +746,7 @@ function renderTable(){
   const filtered = registros.filter(r => {
     if(fClinica && r.clinica !== fClinica) return false;
     if(fPaquete && r.paquete !== fPaquete) return false;
-    if(fOrigen && r.origen !== fOrigen) return false;
+    if(fOrigen && !r.origen.includes(fOrigen)) return false;
     if(search && !(r.nombre.toLowerCase().includes(search) || r.asesor.toLowerCase().includes(search))) return false;
     return true;
   });
@@ -767,7 +771,7 @@ function renderTable(){
       <td>${r.clinica}</td>
       <td>${r.asesor}</td>
       <td><span class="badge ${badgeClass(r.paquete,'paquete')}">${r.paquete}</span></td>
-      <td><span class="badge ${badgeClass(r.origen,'origen')}">${r.origen}</span></td>
+      <td>${r.origen.split(', ').map(o => `<span class="badge ${badgeClass(o,'origen')}">${o}</span>`).join(' ')}</td>
       <td><button class="del-btn" onclick="eliminar(${r.id})" title="Eliminar registro">✕</button></td>
     </tr>
   `).join('');
