@@ -681,7 +681,22 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   renderAll();
 });
 
-function eliminar(id){
+async function eliminar(id){
+  if(APPS_SCRIPT_URL){
+    try{
+      await fetch(APPS_SCRIPT_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accion: "eliminar", id: id })
+      });
+      setConnStatus('on', 'Conectado');
+    } catch(err){
+      setConnStatus('off', 'Sin conexión');
+    }
+  } else {
+    setConnStatus('off', 'Sin conexión');
+  }
+  
   registros = registros.filter(r => r.id !== id);
   renderAll();
 }
