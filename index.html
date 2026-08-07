@@ -52,12 +52,14 @@
   }
   .brand{display:flex;align-items:center;gap:14px;}
   .brand-mark{
-    width:46px;height:46px;border-radius:12px;
-    background:linear-gradient(155deg, var(--primary), var(--primary-dark));
+    height:46px;
     display:flex;align-items:center;justify-content:center;
-    color:#fff;font-family:'Fraunces',serif;font-weight:600;font-size:16px;letter-spacing:0.5px;
-    box-shadow:var(--shadow);
     flex-shrink:0;
+  }
+  .brand-mark img{
+    height:100%;
+    width:auto;
+    object-fit:contain;
   }
   .brand-text h1{
     font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0;line-height:1.15;
@@ -180,7 +182,6 @@
   }
   .field input:focus, .field select:focus{border-color:var(--primary);background:var(--surface);}
   .field input::placeholder{color:var(--muted-2);}
-  datalist{}
 
   .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
   .chip{
@@ -201,11 +202,6 @@
   .submit-btn:hover{background:var(--primary-dark);}
   .submit-btn:active{transform:scale(0.99);}
   .form-error{font-size:12.5px;color:var(--danger);margin-top:8px;display:none;}
-
-  .conn-note{
-    margin-top:16px;padding:12px 13px;border-radius:10px;background:var(--accent-tint);
-    border:1px solid #F0DBAE;font-size:12px;color:#8A6317;line-height:1.5;
-  }
 
   /* stats row */
   .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
@@ -235,10 +231,12 @@
   .filters input{flex:1;min-width:160px;}
   .filters select:focus, .filters input:focus{border-color:var(--primary);}
 
+  .table-container{max-height:520px;overflow-y:auto;overflow-x:auto;}
   table{width:100%;border-collapse:collapse;font-size:13.5px;}
   thead th{
     text-align:left;padding:10px 20px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
     color:var(--muted-2);font-weight:700;border-bottom:1px solid var(--line);background:var(--paper);
+    position:sticky;top:0;z-index:2;
   }
   tbody td{padding:12px 20px;border-bottom:1px solid var(--line-soft);vertical-align:middle;}
   tbody tr:hover{background:var(--paper);}
@@ -276,7 +274,7 @@
 
   <header class="top">
     <div class="brand">
-      <div class="brand-mark">DMF</div>
+      <div class="brand-mark"><img src="logo-dental-mas-facil.png" alt="Dental Más Fácil"></div>
       <div class="brand-text">
         <h1>Registro de Asistencia</h1>
         <p>Dental Más Fácil · Tijuana · Mexicali · Ensenada</p>
@@ -288,7 +286,7 @@
       <button class="gear-btn" id="gearBtn" title="Configurar conexión con Google Sheets">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06-.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
       </button>
     </div>
@@ -383,10 +381,6 @@
           <button type="submit" class="submit-btn">Registrar asistencia</button>
           <div class="form-error" id="formError">Completa nombre, clínica y paquete antes de registrar.</div>
         </form>
-
-        <div class="conn-note" id="connNote">
-          <strong>Sin conectar todavía:</strong> los registros solo se guardan en esta sesión del navegador. Da clic en el engranaje ⚙️ de arriba y pega la URL de tu Web App para que se guarden en Google Sheets.
-        </div>
       </div>
     </div>
 
@@ -464,7 +458,7 @@
             <option value="Por asesor">Por asesor</option>
           </select>
         </div>
-        <div style="overflow-x:auto;">
+        <div class="table-container">
           <table>
             <thead>
               <tr>
@@ -507,17 +501,8 @@ function setConnStatus(state, text){
   document.getElementById('connStatusText').textContent = text;
 }
 
-function refreshConnNote(){
-  const note = document.getElementById('connNote');
-  if(APPS_SCRIPT_URL){
-    note.innerHTML = '<strong>Conectado.</strong> Cada registro nuevo se guarda directo en tu Google Sheet.';
-  } else {
-    note.innerHTML = '<strong>Sin conectar todavía:</strong> los registros solo se guardan en esta sesión del navegador. Da clic en el engranaje ⚙️ de arriba y pega la URL de tu Web App para que se guarden en Google Sheets.';
-  }
-}
-
 async function cargarDesdeSheets(){
-  if(!APPS_SCRIPT_URL){ setConnStatus('off', 'Sin conectar'); refreshConnNote(); return; }
+  if(!APPS_SCRIPT_URL){ setConnStatus('off', 'Sin conectar'); return; }
   setConnStatus('checking', 'Conectando...');
   try{
     const res = await fetch(APPS_SCRIPT_URL, { method:'GET' });
@@ -529,7 +514,6 @@ async function cargarDesdeSheets(){
   } catch(err){
     setConnStatus('off', 'Sin conexión');
   }
-  refreshConnNote();
 }
 
 async function guardarEnSheets(registro){
@@ -537,7 +521,7 @@ async function guardarEnSheets(registro){
   try{
     await fetch(APPS_SCRIPT_URL, {
       method:'POST',
-      headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // evita preflight CORS con Apps Script
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
       body: JSON.stringify(registro)
     });
     setConnStatus('on', 'Conectado');
@@ -565,7 +549,6 @@ document.getElementById('urlClearBtn').onclick = () => {
   APPS_SCRIPT_URL = '';
   localStorage.removeItem('dmf_apps_script_url');
   setConnStatus('off', 'Sin conectar');
-  refreshConnNote();
   document.getElementById('urlInput').value = '';
   modalMsg.className = 'modal-msg ok';
   modalMsg.textContent = 'Conexión eliminada. Los registros ahora solo se guardan localmente.';
