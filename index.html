@@ -321,7 +321,7 @@
   <div class="grid">
 
     <!-- FORM -->
-    <div class="panel">
+    <div class="panel" id="formPanel">
       <div class="panel-head">
         <div class="eyebrow">Nuevo registro</div>
         <h2>Paciente que asistió</h2>
@@ -801,7 +801,27 @@ function renderAll(){
   renderCharts();
   renderTable();
   actualizarMesesPdf();
+  syncHeights();
 }
+
+function syncHeights() {
+  const formPanel = document.getElementById('formPanel');
+  const tableContainer = document.querySelector('.table-container');
+  if(!formPanel || !tableContainer) return;
+  
+  if (window.innerWidth > 980) {
+    const leftBottom = formPanel.getBoundingClientRect().bottom;
+    const tableTop = tableContainer.getBoundingClientRect().top;
+    let available = leftBottom - tableTop - 2;
+    
+    if (available < 200) available = 200;
+    tableContainer.style.maxHeight = available + 'px';
+  } else {
+    tableContainer.style.maxHeight = '520px';
+  }
+}
+
+window.addEventListener('resize', syncHeights);
 
 const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
