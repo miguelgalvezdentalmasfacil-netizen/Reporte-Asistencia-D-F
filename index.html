@@ -876,21 +876,56 @@ document.getElementById('btnDownloadPdf').onclick = () => {
   const PRIMARY_COLOR = [14, 165, 233]; // #0EA5E9
   const TEXT_COLOR = [30, 41, 59];
 
+  // Helper hook para fila de totales
+  const totalRowHook = (data) => {
+    if (data.row.index === data.table.body.length - 1 && data.row.raw[0] === 'TOTAL') {
+      data.cell.styles.fillColor = [224, 242, 254];
+      data.cell.styles.fontStyle = 'bold';
+      data.cell.styles.textColor = TEXT_COLOR;
+    }
+  };
+
+  const autoTableConfig = {
+    theme: 'grid',
+    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10, textColor: 255 },
+    alternateRowStyles: { fillColor: [240, 249, 255] },
+    didParseCell: totalRowHook
+  };
+
   doc.setFont("helvetica");
+
+  // Logo base64
+  const imgEl = document.querySelector('.brand-mark img');
+  if (imgEl && imgEl.complete && imgEl.naturalWidth > 0) {
+    const canvas = document.createElement('canvas');
+    canvas.width = imgEl.naturalWidth;
+    canvas.height = imgEl.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(imgEl, 0, 0);
+    const imgData = canvas.toDataURL('image/png');
+    // Ancho 32, alto proporcional
+    const propHeight = 32 * (imgEl.naturalHeight / imgEl.naturalWidth);
+    doc.addImage(imgData, 'PNG', 14, 15, 32, propHeight);
+  }
 
   // Portada/encabezado
   doc.setFontSize(22);
   doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
-  doc.text("Dental Más Fácil", 14, 22);
+  doc.text("Dental Más Fácil", 52, 22);
   
   doc.setFontSize(14);
   doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
-  doc.text(title, 14, 32);
+  doc.text(title, 52, 30);
+  
+  // Separador
+  doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+  doc.setLineWidth(0.5);
+  doc.line(14, 38, 196, 38);
 
   doc.setFontSize(10);
   doc.setTextColor(100, 100, 100);
   const now = new Date();
-  doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}`, 14, 38);
+  doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}`, 14, 46);
 
   // Resumen general
   const total = filtered.length;
@@ -905,93 +940,137 @@ document.getElementById('btnDownloadPdf').onclick = () => {
   });
 
   doc.autoTable({
-    startY: 45,
-    theme: 'grid',
-    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10, halign: 'center' },
+    ...autoTableConfig,
+    startY: 52,
+    headStyles: { ...autoTableConfig.headStyles, halign: 'center' },
     bodyStyles: { fontSize: 10, halign: 'center' },
     head: [['Total Pacientes', 'Individual', 'Dual', 'Familiar', 'Cuenta Propia', 'Convenio', 'Por Asesor']],
-    body: [[total, ind, dual, fam, cp, conv, ases]]
+    body: [[total, ind, dual, fam, cp, conv, ases]],
+    didParseCell: null // No total row hook for this one
   });
 
-  let finalY = doc.lastAutoTable.finalY + 10;
+  let finalY = doc.lastAutoTable.finalY + 15;
 
   // Asistencia por clínica y Rendimiento por asesor
   const countsClinica = {};
   CLINICAS.forEach(c => countsClinica[c] = 0);
   filtered.forEach(r => { if(countsClinica[r.clinica] !== undefined) countsClinica[r.clinica]++; });
+  const bodyClinica = CLINICAS.map(c => [c, countsClinica[c]]);
+  bodyClinica.push(['TOTAL', bodyClinica.reduce((sum, row) => sum + row[1], 0)]);
 
   doc.setFontSize(12);
   doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
   doc.text("Asistencia por clínica", 14, finalY);
   
   doc.autoTable({
+    ...autoTableConfig,
     startY: finalY + 4,
-    theme: 'grid',
-    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
     head: [['Clínica', 'Pacientes']],
-    body: CLINICAS.map(c => [c, countsClinica[c]]),
+    body: bodyClinica,
     tableWidth: 85
   });
   const finalY_Clinica = doc.lastAutoTable.finalY;
 
   const countsAsesor = {};
   filtered.forEach(r => {
-    if(r.asesor && r.asesor !== '—') countsAsesor[r.asesor] = (countsAsesor[r.asesor] || 0) + 1;
+    if(r.asesor && r.asesor !== 'Sin asignar') countsAsesor[r.asesor] = (countsAsesor[r.asesor] || 0) + 1;
   });
   const asesoresSorted = Object.keys(countsAsesor).sort((a,b) => countsAsesor[b] - countsAsesor[a]);
+  const bodyAsesor = asesoresSorted.length ? asesoresSorted.map(a => [a, countsAsesor[a]]) : [];
+  bodyAsesor.push(['TOTAL', bodyAsesor.reduce((sum, row) => sum + row[1], 0)]);
   
   doc.text("Rendimiento por asesor", 110, finalY);
   doc.autoTable({
+    ...autoTableConfig,
     startY: finalY + 4,
-    theme: 'grid',
     margin: { left: 110 },
-    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
     head: [['Asesor', 'Pacientes']],
-    body: asesoresSorted.length ? asesoresSorted.map(a => [a, countsAsesor[a]]) : [['Sin datos', 0]],
+    body: bodyAsesor,
     tableWidth: 85
   });
 
-  finalY = Math.max(finalY_Clinica, doc.lastAutoTable.finalY) + 10;
+  finalY = Math.max(finalY_Clinica, doc.lastAutoTable.finalY) + 15;
 
-  // Cuenta propia por clínica y Convenio por clínica
+  // Cuenta propia por clínica y CONVENIO (APARTE)
   const cpClinica = {};
-  const convClinica = {};
-  CLINICAS.forEach(c => { cpClinica[c] = 0; convClinica[c] = 0; });
+  CLINICAS.forEach(c => { cpClinica[c] = 0; });
   filtered.forEach(r => {
     if(r.origen.includes('Cuenta propia') && cpClinica[r.clinica] !== undefined) cpClinica[r.clinica]++;
-    if(r.origen.includes('Convenio') && convClinica[r.clinica] !== undefined) convClinica[r.clinica]++;
   });
+  const bodyCp = CLINICAS.map(c => [c, cpClinica[c]]);
+  bodyCp.push(['TOTAL', bodyCp.reduce((sum, row) => sum + row[1], 0)]);
 
   doc.text("Cuenta propia por clínica", 14, finalY);
   doc.autoTable({
+    ...autoTableConfig,
     startY: finalY + 4,
-    theme: 'grid',
-    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
     head: [['Clínica', 'C. Propia']],
-    body: CLINICAS.map(c => [c, cpClinica[c]]),
+    body: bodyCp,
     tableWidth: 85
   });
   const finalY_CP = doc.lastAutoTable.finalY;
 
-  doc.text("Convenio por clínica", 110, finalY);
+  // CONVENIO (APARTE)
+  let convAsesor = 0, convPropia = 0;
+  filtered.forEach(r => {
+    if(r.origen.includes('Convenio')) {
+      if(r.asesor && r.asesor !== 'Sin asignar') convAsesor++;
+      else convPropia++;
+    }
+  });
+  const bodyConvenio = [
+    ['De asesor', convAsesor],
+    ['Cuenta propia (clínica)', convPropia],
+    ['TOTAL', convAsesor + convPropia]
+  ];
+
+  doc.text("CONVENIO (APARTE)", 110, finalY);
   doc.autoTable({
+    ...autoTableConfig,
     startY: finalY + 4,
-    theme: 'grid',
     margin: { left: 110 },
-    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10 },
-    head: [['Clínica', 'Convenio']],
-    body: CLINICAS.map(c => [c, convClinica[c]]),
+    head: [['Tipo', 'Pacientes']],
+    body: bodyConvenio,
     tableWidth: 85
   });
 
   finalY = Math.max(finalY_CP, doc.lastAutoTable.finalY) + 15;
 
+  // NUEVA TABLA: ASESOR POR CLÍNICA
+  const cruzados = {};
+  filtered.forEach(r => {
+    if(r.asesor && r.asesor !== 'Sin asignar' && r.clinica) {
+      const key = `${r.asesor} — ${r.clinica}`;
+      cruzados[key] = (cruzados[key] || 0) + 1;
+    }
+  });
+  const cruzadosSorted = Object.keys(cruzados).sort();
+  const bodyCruzados = cruzadosSorted.length ? cruzadosSorted.map(k => [k, cruzados[k]]) : [];
+  bodyCruzados.push(['TOTAL', bodyCruzados.reduce((sum, row) => sum + row[1], 0)]);
+
+  doc.text("ASESOR POR CLÍNICA", 14, finalY);
+  doc.autoTable({
+    ...autoTableConfig,
+    startY: finalY + 4,
+    head: [['Asesor — Clínica', 'Pacientes']],
+    body: bodyCruzados,
+    tableWidth: 85
+  });
+
+  finalY = doc.lastAutoTable.finalY + 15;
+
+  // Si no cabe para la tabla larga, salta página
+  if (finalY > doc.internal.pageSize.height - 40) {
+    doc.addPage();
+    finalY = 20;
+  }
+
   // Listado completo de pacientes
   doc.text("Listado completo de pacientes", 14, finalY);
   doc.autoTable({
+    ...autoTableConfig,
     startY: finalY + 4,
-    theme: 'striped',
-    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 9 },
+    headStyles: { ...autoTableConfig.headStyles, fontSize: 9 },
     bodyStyles: { fontSize: 8 },
     head: [['Fecha', 'Paciente', 'Clínica', 'Asesor', 'Paquete', 'Origen']],
     body: filtered.map(r => [
@@ -1001,7 +1080,8 @@ document.getElementById('btnDownloadPdf').onclick = () => {
       r.asesor,
       r.paquete,
       r.origen
-    ])
+    ]),
+    didParseCell: null // No total row for the full list
   });
 
   // Footer con paginación
@@ -1010,7 +1090,8 @@ document.getElementById('btnDownloadPdf').onclick = () => {
     doc.setPage(j);
     doc.setFontSize(9);
     doc.setTextColor(150, 150, 150);
-    doc.text(`Página ${j} de ${pages} - Generado el ${now.toLocaleDateString('es-MX')}`, 14, doc.internal.pageSize.height - 10);
+    doc.text("Dental Más Fácil — Reporte confidencial", 14, doc.internal.pageSize.height - 10);
+    doc.text(`Página ${j} de ${pages}`, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 10, { align: 'right' });
   }
 
   doc.save(fileName);
