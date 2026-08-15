@@ -1154,6 +1154,38 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     }, chartWidth, chartHeight);
 
 
+    // 7. Cuenta propia por Clínica (Barras)
+    const cpClinica = {};
+    CLINICAS.forEach(c => cpClinica[c] = 0);
+    const cpRegistros = filtered.filter(r => r.origen.includes('Cuenta propia'));
+    cpRegistros.forEach(r => { if(cpClinica[r.clinica] !== undefined) cpClinica[r.clinica]++; });
+    let maxCpC = '', maxCpV = 0;
+    CLINICAS.forEach(c => { if(cpClinica[c] > maxCpV) { maxCpV = cpClinica[c]; maxCpC = c; } });
+    const cpPct = cp > 0 ? Math.round((maxCpV / cp) * 100) : 0;
+    
+    const chart7_b64 = await renderChartToBase64({
+      type: 'bar',
+      data: {
+        labels: CLINICAS,
+        datasets: [{ label: 'Cuenta Propia', data: CLINICAS.map(c => cpClinica[c]), backgroundColor: '#10B981' }]
+      },
+      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Cuenta Propia por Clínica' } } }
+    }, chartWidth, chartHeight);
+
+    // 8. Cuenta propia (Tendencia Línea)
+    const tlCp = {};
+    cpRegistros.forEach(r => { tlCp[r.fecha] = (tlCp[r.fecha] || 0) + 1; });
+    const cpDatesSorted = Object.keys(tlCp).sort();
+    const chart8_b64 = await renderChartToBase64({
+      type: 'line',
+      data: {
+        labels: cpDatesSorted.length ? cpDatesSorted : ['Sin datos'],
+        datasets: [{ label: 'Pacientes CP', data: cpDatesSorted.length ? cpDatesSorted.map(d => tlCp[d]) : [0], borderColor: '#10B981', tension: 0.3 }]
+      },
+      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia Mensual (Cuenta Propia)' } }, scales: { y: { beginAtZero: true } } }
+    }, chartWidth + 200, chartHeight);
+
+
     // --- DIBUJAR PÁGINA 1 ---
     let yPos = 110;
     doc.addImage(chart3_b64, 'PNG', 14, yPos, 80, 80);
@@ -1192,7 +1224,20 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
       addInsight(doc, `Liderazgo por plaza: ${dominatingText.join(', ')}.`, 14, yPos + 95, 160);
     }
 
-    // --- PÁGINA 3 (TARJETAS INDIVIDUALES) ---
+    // --- PÁGINA 3 (CUENTA PROPIA) ---
+    doc.addPage();
+    yPos = 20;
+    
+    doc.addImage(chart7_b64, 'PNG', 14, yPos, 160, 90);
+    if(maxCpV > 0) {
+      addInsight(doc, `${maxCpC} tuvo el mayor volumen de cuenta propia con ${maxCpV} pacientes, representando el ${cpPct}% de todo el tráfico orgánico.`, 14, yPos + 95, 160);
+    }
+    
+    yPos += 110;
+    
+    doc.addImage(chart8_b64, 'PNG', 14, yPos, 180, 75);
+
+    // --- PÁGINA 4 (TARJETAS INDIVIDUALES) ---
     if(asesoresSorted.length > 0) {
       doc.addPage();
       doc.setFont("helvetica", "bold");
@@ -1215,13 +1260,13 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
         const ds = Object.keys(tl).sort();
         
         const b64_asesor = await renderChartToBase64({
-          type: 'bar',
+          type: 'line',
           data: {
-            labels: ds.length ? ds : [''],
-            datasets: [{ data: ds.length ? ds.map(d=>tl[d]) : [0], backgroundColor: '#0EA5E9' }]
+            labels: ds.length ? ds : ['Sin datos'],
+            datasets: [{ label: 'Pacientes', data: ds.length ? ds.map(d=>tl[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
           },
-          options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { display: false } } }
-        }, 150, 60);
+          options: { plugins: { legend: { display: false }, title: { display: false } }, scales: { y: { display: false, beginAtZero: true }, x: { display: false } } }
+        }, 200, 80);
         
         doc.setDrawColor(220, 220, 220);
         doc.setFillColor(250, 250, 250);
@@ -1242,7 +1287,7 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
         doc.setTextColor(100, 100, 100);
         doc.text(msg, 18, cardY + 26);
         
-        doc.addImage(b64_asesor, 'PNG', 140, cardY + 5, 50, 30);
+        doc.addImage(b64_asesor, 'PNG', 140, cardY + 5, 50, 20);
         
         cardY += 45;
       }
