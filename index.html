@@ -1236,6 +1236,10 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     yPos += 110;
     
     doc.addImage(chart8_b64, 'PNG', 14, yPos, 180, 75);
+    const peakDayCp = cpDatesSorted.length ? cpDatesSorted.reduce((a,b)=>tlCp[a] > tlCp[b] ? a : b) : 'N/A';
+    if(peakDayCp !== 'N/A') {
+      addInsight(doc, `El día de mayor actividad de cuenta propia fue el ${peakDayCp} con ${tlCp[peakDayCp]} pacientes. En total el mes sumó ${cp} orgánicos.`, 14, yPos + 80, 180);
+    }
 
     // --- PÁGINA 4 (TARJETAS INDIVIDUALES) ---
     if(asesoresSorted.length > 0) {
@@ -1247,7 +1251,7 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
       
       let cardY = 30;
       for(let a of asesoresSorted) {
-        if(cardY > 240) {
+        if(cardY > 160) {
           doc.addPage();
           cardY = 20;
         }
@@ -1258,6 +1262,7 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
         const tl = {};
         pcts.forEach(r => { tl[r.fecha] = (tl[r.fecha] || 0) + 1; });
         const ds = Object.keys(tl).sort();
+        const peakDayA = ds.length ? ds.reduce((x,y)=>tl[x] > tl[y] ? x : y) : 'N/A';
         
         const b64_asesor = await renderChartToBase64({
           type: 'line',
@@ -1265,12 +1270,12 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
             labels: ds.length ? ds : ['Sin datos'],
             datasets: [{ label: 'Pacientes', data: ds.length ? ds.map(d=>tl[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
           },
-          options: { plugins: { legend: { display: false }, title: { display: false } }, scales: { y: { display: false, beginAtZero: true }, x: { display: false } } }
-        }, 200, 80);
+          options: { plugins: { legend: { display: false }, title: { display: false } }, scales: { y: { beginAtZero: true } } }
+        }, chartWidth + 200, chartHeight);
         
         doc.setDrawColor(220, 220, 220);
         doc.setFillColor(250, 250, 250);
-        doc.roundedRect(14, cardY, 180, 40, 2, 2, 'FD');
+        doc.roundedRect(14, cardY, 180, 120, 2, 2, 'FD');
         
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
@@ -1287,9 +1292,13 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
         doc.setTextColor(100, 100, 100);
         doc.text(msg, 18, cardY + 26);
         
-        doc.addImage(b64_asesor, 'PNG', 140, cardY + 5, 50, 20);
+        doc.addImage(b64_asesor, 'PNG', 16, cardY + 30, 176, 75);
         
-        cardY += 45;
+        if(peakDayA !== 'N/A') {
+          addInsight(doc, `Su día de mayor actividad fue el ${peakDayA} con ${tl[peakDayA]} pacientes.`, 18, cardY + 112, 170);
+        }
+        
+        cardY += 128;
       }
     }
 
