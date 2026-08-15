@@ -851,7 +851,39 @@ function actualizarMesesPdf() {
   }
 }
 
-document.getElementById('btnDownloadPdf').onclick = () => {
+// --- HELPER PARA CHART A BASE64 ---
+async function renderChartToBase64(config, width, height) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.width = width + 'px';
+    container.style.height = height + 'px';
+    container.appendChild(canvas);
+    document.body.appendChild(container);
+
+    const mergedConfig = JSON.parse(JSON.stringify(config));
+    mergedConfig.options = mergedConfig.options || {};
+    mergedConfig.options.animation = false;
+    mergedConfig.options.responsive = false;
+    mergedConfig.options.devicePixelRatio = 2;
+
+    const chart = new Chart(canvas, mergedConfig);
+    
+    setTimeout(() => {
+      const b64 = chart.toBase64Image();
+      chart.destroy();
+      document.body.removeChild(container);
+      resolve(b64);
+    }, 150); // slight delay to ensure canvas paints fully
+  });
+}
+
+document.getElementById('btnDownloadPdf').onclick = async () => {
   const ym = document.getElementById('pdfMonthSelect').value;
   if(!ym) {
     alert("No hay datos para generar el reporte.");
@@ -863,236 +895,248 @@ document.getElementById('btnDownloadPdf').onclick = () => {
     return;
   }
 
-  const [y, mStr] = ym.split('-');
-  const mesLabel = monthNames[parseInt(mStr,10)-1];
-  const title = `Reporte Mensual de Ventas — ${mesLabel} ${y}`;
-  const fileName = `Reporte_Ventas_DentalMasFacil_${mesLabel}_${y}.pdf`;
+  const btn = document.getElementById('btnDownloadPdf');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = "Generando PDF...";
+  btn.disabled = true;
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  
-  const PRIMARY_COLOR = [14, 165, 233]; // #0EA5E9
-  const TEXT_COLOR = [30, 41, 59];
+  try {
+    const [y, mStr] = ym.split('-');
+    const mesLabel = monthNames[parseInt(mStr,10)-1];
+    const title = `Reporte Mensual de Ventas — ${mesLabel} ${y}`;
+    const fileName = `Reporte_Ventas_DentalMasFacil_${mesLabel}_${y}.pdf`;
 
-  // Helper hook para fila de totales
-  const totalRowHook = (data) => {
-    if (data.row.index === data.table.body.length - 1 && data.row.raw[0] === 'TOTAL') {
-      data.cell.styles.fillColor = [224, 242, 254];
-      data.cell.styles.fontStyle = 'bold';
-      data.cell.styles.textColor = TEXT_COLOR;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const PRIMARY_COLOR = [14, 165, 233]; // #0EA5E9
+    const TEXT_COLOR = [30, 41, 59];
+
+    doc.setFont("helvetica");
+
+    // Logo base64
+    const imgEl = document.querySelector('.brand-mark img');
+    if (imgEl && imgEl.complete && imgEl.naturalWidth > 0) {
+      const canvas = document.createElement('canvas');
+      canvas.width = imgEl.naturalWidth;
+      canvas.height = imgEl.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(imgEl, 0, 0);
+      const imgData = canvas.toDataURL('image/png');
+      const propHeight = 32 * (imgEl.naturalHeight / imgEl.naturalWidth);
+      doc.addImage(imgData, 'PNG', 14, 15, 32, propHeight);
     }
-  };
 
-  const autoTableConfig = {
-    theme: 'grid',
-    headStyles: { fillColor: PRIMARY_COLOR, fontSize: 10, textColor: 255 },
-    alternateRowStyles: { fillColor: [240, 249, 255] },
-    didParseCell: totalRowHook
-  };
+    // Encabezado
+    doc.setFontSize(22);
+    doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.text("Dental Más Fácil", 52, 22);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
+    doc.text(title, 52, 30);
+    
+    doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.setLineWidth(0.5);
+    doc.line(14, 38, 196, 38);
 
-  doc.setFont("helvetica");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    const now = new Date();
+    doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}`, 14, 46);
 
-  // Logo base64
-  const imgEl = document.querySelector('.brand-mark img');
-  if (imgEl && imgEl.complete && imgEl.naturalWidth > 0) {
-    const canvas = document.createElement('canvas');
-    canvas.width = imgEl.naturalWidth;
-    canvas.height = imgEl.naturalHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(imgEl, 0, 0);
-    const imgData = canvas.toDataURL('image/png');
-    // Ancho 32, alto proporcional
-    const propHeight = 32 * (imgEl.naturalHeight / imgEl.naturalWidth);
-    doc.addImage(imgData, 'PNG', 14, 15, 32, propHeight);
-  }
+    // --- CÁLCULOS KPI ---
+    const total = filtered.length;
+    const ind = filtered.filter(r => r.paquete === 'Individual').length;
+    const dual = filtered.filter(r => r.paquete === 'Dual').length;
+    const fam = filtered.filter(r => r.paquete === 'Familiar').length;
+    let cp = 0, conv = 0, ases = 0;
+    filtered.forEach(r => {
+      if(r.origen.includes('Cuenta propia')) cp++;
+      if(r.origen.includes('Convenio')) conv++;
+      if(r.origen.includes('Por asesor')) ases++;
+    });
 
-  // Portada/encabezado
-  doc.setFontSize(22);
-  doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
-  doc.text("Dental Más Fácil", 52, 22);
-  
-  doc.setFontSize(14);
-  doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
-  doc.text(title, 52, 30);
-  
-  // Separador
-  doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
-  doc.setLineWidth(0.5);
-  doc.line(14, 38, 196, 38);
+    const kpis = [
+      { label: 'TOTAL', val: total },
+      { label: 'Individual', val: ind },
+      { label: 'Dual', val: dual },
+      { label: 'Familiar', val: fam },
+      { label: 'Cuenta Propia', val: cp },
+      { label: 'Convenio', val: conv },
+      { label: 'Por Asesor', val: ases }
+    ];
 
-  doc.setFontSize(10);
-  doc.setTextColor(100, 100, 100);
-  const now = new Date();
-  doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}`, 14, 46);
+    let startX = 14;
+    let startY = 55;
+    const cardW = 42;
+    const cardH = 18;
+    const gap = 4;
 
-  // Resumen general
-  const total = filtered.length;
-  const ind = filtered.filter(r => r.paquete === 'Individual').length;
-  const dual = filtered.filter(r => r.paquete === 'Dual').length;
-  const fam = filtered.filter(r => r.paquete === 'Familiar').length;
-  let cp = 0, conv = 0, ases = 0;
-  filtered.forEach(r => {
-    if(r.origen.includes('Cuenta propia')) cp++;
-    if(r.origen.includes('Convenio')) conv++;
-    if(r.origen.includes('Por asesor')) ases++;
-  });
+    doc.setFontSize(8);
+    kpis.forEach((kpi, idx) => {
+      const col = idx % 4;
+      const row = Math.floor(idx / 4);
+      const cx = startX + (col * (cardW + gap));
+      const cy = startY + (row * (cardH + gap));
 
-  doc.autoTable({
-    ...autoTableConfig,
-    startY: 52,
-    headStyles: { ...autoTableConfig.headStyles, halign: 'center' },
-    bodyStyles: { fontSize: 10, halign: 'center' },
-    head: [['Total Pacientes', 'Individual', 'Dual', 'Familiar', 'Cuenta Propia', 'Convenio', 'Por Asesor']],
-    body: [[total, ind, dual, fam, cp, conv, ases]],
-    didParseCell: null // No total row hook for this one
-  });
+      doc.setDrawColor(220, 220, 220);
+      doc.setFillColor(250, 250, 250);
+      doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'FD');
 
-  let finalY = doc.lastAutoTable.finalY + 15;
+      doc.setTextColor(150, 150, 150);
+      doc.setFont("helvetica", "bold");
+      doc.text(kpi.label.toUpperCase(), cx + 4, cy + 6);
+      
+      doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(14);
+      doc.text(kpi.val.toString(), cx + 4, cy + 14);
+      doc.setFontSize(8);
+    });
 
-  // Asistencia por clínica y Rendimiento por asesor
-  const countsClinica = {};
-  CLINICAS.forEach(c => countsClinica[c] = 0);
-  filtered.forEach(r => { if(countsClinica[r.clinica] !== undefined) countsClinica[r.clinica]++; });
-  const bodyClinica = CLINICAS.map(c => [c, countsClinica[c]]);
-  bodyClinica.push(['TOTAL', bodyClinica.reduce((sum, row) => sum + row[1], 0)]);
+    // --- GENERACIÓN DE GRÁFICOS ---
+    const chartWidth = 600;
+    const chartHeight = 350;
 
-  doc.setFontSize(12);
-  doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
-  doc.text("Asistencia por clínica", 14, finalY);
-  
-  doc.autoTable({
-    ...autoTableConfig,
-    startY: finalY + 4,
-    head: [['Clínica', 'Pacientes']],
-    body: bodyClinica,
-    tableWidth: 85
-  });
-  const finalY_Clinica = doc.lastAutoTable.finalY;
+    // 1. Rendimiento por asesor (Barras Horizontales)
+    const countsAsesor = {};
+    filtered.forEach(r => {
+      if(r.asesor && r.asesor !== 'Sin asignar') countsAsesor[r.asesor] = (countsAsesor[r.asesor] || 0) + 1;
+    });
+    const asesoresSorted = Object.keys(countsAsesor).sort((a,b) => countsAsesor[b] - countsAsesor[a]);
+    const chart1_b64 = await renderChartToBase64({
+      type: 'bar',
+      data: {
+        labels: asesoresSorted.length ? asesoresSorted : ['Sin datos'],
+        datasets: [{ label: 'Pacientes', data: asesoresSorted.length ? asesoresSorted.map(a => countsAsesor[a]) : [0], backgroundColor: '#0EA5E9' }]
+      },
+      options: { indexAxis: 'y', plugins: { legend: { display: false }, title: { display: true, text: 'Rendimiento por Asesor' } } }
+    }, chartWidth, chartHeight);
 
-  const countsAsesor = {};
-  filtered.forEach(r => {
-    if(r.asesor && r.asesor !== 'Sin asignar') countsAsesor[r.asesor] = (countsAsesor[r.asesor] || 0) + 1;
-  });
-  const asesoresSorted = Object.keys(countsAsesor).sort((a,b) => countsAsesor[b] - countsAsesor[a]);
-  const bodyAsesor = asesoresSorted.length ? asesoresSorted.map(a => [a, countsAsesor[a]]) : [];
-  bodyAsesor.push(['TOTAL', bodyAsesor.reduce((sum, row) => sum + row[1], 0)]);
-  
-  doc.text("Rendimiento por asesor", 110, finalY);
-  doc.autoTable({
-    ...autoTableConfig,
-    startY: finalY + 4,
-    margin: { left: 110 },
-    head: [['Asesor', 'Pacientes']],
-    body: bodyAsesor,
-    tableWidth: 85
-  });
+    // 2. Asistencia por clínica (Dona)
+    const countsClinica = {};
+    CLINICAS.forEach(c => countsClinica[c] = 0);
+    filtered.forEach(r => { if(countsClinica[r.clinica] !== undefined) countsClinica[r.clinica]++; });
+    const chart2_b64 = await renderChartToBase64({
+      type: 'doughnut',
+      data: {
+        labels: CLINICAS,
+        datasets: [{ data: CLINICAS.map(c => countsClinica[c]), backgroundColor: ['#0EA5E9','#F59E0B','#8B5CF6','#10B981'] }]
+      },
+      options: { plugins: { title: { display: true, text: 'Pacientes por Clínica' } } }
+    }, 400, 400);
 
-  finalY = Math.max(finalY_Clinica, doc.lastAutoTable.finalY) + 15;
+    // 3. Origen (Cuenta propia vs Por Asesor) (Pastel)
+    const chart3_b64 = await renderChartToBase64({
+      type: 'pie',
+      data: {
+        labels: ['Cuenta Propia', 'Por Asesor'],
+        datasets: [{ data: [cp, ases], backgroundColor: ['#10B981', '#F59E0B'] }]
+      },
+      options: { plugins: { title: { display: true, text: 'Origen Principal' } } }
+    }, 400, 400);
 
-  // Cuenta propia por clínica y CONVENIO (APARTE)
-  const cpClinica = {};
-  CLINICAS.forEach(c => { cpClinica[c] = 0; });
-  filtered.forEach(r => {
-    if(r.origen.includes('Cuenta propia') && cpClinica[r.clinica] !== undefined) cpClinica[r.clinica]++;
-  });
-  const bodyCp = CLINICAS.map(c => [c, cpClinica[c]]);
-  bodyCp.push(['TOTAL', bodyCp.reduce((sum, row) => sum + row[1], 0)]);
+    // 4. Convenio (De asesor vs cuenta propia) (Barras vertical)
+    let convAsesor = 0, convPropia = 0;
+    filtered.forEach(r => {
+      if(r.origen.includes('Convenio')) {
+        if(r.asesor && r.asesor !== 'Sin asignar') convAsesor++;
+        else convPropia++;
+      }
+    });
+    const chart4_b64 = await renderChartToBase64({
+      type: 'bar',
+      data: {
+        labels: ['De asesor', 'Cuenta propia'],
+        datasets: [{ label: 'Convenios', data: [convAsesor, convPropia], backgroundColor: '#8B5CF6' }]
+      },
+      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Desglose de Convenios' } } }
+    }, 400, 350);
 
-  doc.text("Cuenta propia por clínica", 14, finalY);
-  doc.autoTable({
-    ...autoTableConfig,
-    startY: finalY + 4,
-    head: [['Clínica', 'C. Propia']],
-    body: bodyCp,
-    tableWidth: 85
-  });
-  const finalY_CP = doc.lastAutoTable.finalY;
+    // 5. Asesor por clínica (Stacked Bar)
+    const cruzados = {};
+    CLINICAS.forEach(c => {
+      cruzados[c] = {};
+      asesoresSorted.forEach(a => cruzados[c][a] = 0);
+    });
+    filtered.forEach(r => {
+      if(r.asesor && r.asesor !== 'Sin asignar' && cruzados[r.clinica]) {
+        cruzados[r.clinica][r.asesor]++;
+      }
+    });
+    const colors = ['#0EA5E9','#F59E0B','#8B5CF6','#10B981','#EC4899'];
+    const datasetsStacked = asesoresSorted.map((a, i) => ({
+      label: a,
+      data: CLINICAS.map(c => cruzados[c][a]),
+      backgroundColor: colors[i % colors.length]
+    }));
+    const chart5_b64 = await renderChartToBase64({
+      type: 'bar',
+      data: { labels: CLINICAS, datasets: datasetsStacked },
+      options: { plugins: { title: { display: true, text: 'Asesor por Clínica' } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+    }, chartWidth, chartHeight);
 
-  // CONVENIO (APARTE)
-  let convAsesor = 0, convPropia = 0;
-  filtered.forEach(r => {
-    if(r.origen.includes('Convenio')) {
-      if(r.asesor && r.asesor !== 'Sin asignar') convAsesor++;
-      else convPropia++;
-    }
-  });
-  const bodyConvenio = [
-    ['De asesor', convAsesor],
-    ['Cuenta propia (clínica)', convPropia],
-    ['TOTAL', convAsesor + convPropia]
-  ];
+    // 6. Tendencia (Línea)
+    const timeline = {};
+    filtered.forEach(r => {
+      timeline[r.fecha] = (timeline[r.fecha] || 0) + 1;
+    });
+    const datesSorted = Object.keys(timeline).sort();
+    const chart6_b64 = await renderChartToBase64({
+      type: 'line',
+      data: {
+        labels: datesSorted.length ? datesSorted : ['Sin datos'],
+        datasets: [{ label: 'Registros', data: datesSorted.length ? datesSorted.map(d => timeline[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
+      },
+      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia Mensual' } }, scales: { y: { beginAtZero: true } } }
+    }, chartWidth + 200, chartHeight);
 
-  doc.text("CONVENIO (APARTE)", 110, finalY);
-  doc.autoTable({
-    ...autoTableConfig,
-    startY: finalY + 4,
-    margin: { left: 110 },
-    head: [['Tipo', 'Pacientes']],
-    body: bodyConvenio,
-    tableWidth: 85
-  });
 
-  finalY = Math.max(finalY_CP, doc.lastAutoTable.finalY) + 15;
-
-  // NUEVA TABLA: ASESOR POR CLÍNICA
-  const cruzados = {};
-  filtered.forEach(r => {
-    if(r.asesor && r.asesor !== 'Sin asignar' && r.clinica) {
-      const key = `${r.asesor} — ${r.clinica}`;
-      cruzados[key] = (cruzados[key] || 0) + 1;
-    }
-  });
-  const cruzadosSorted = Object.keys(cruzados).sort();
-  const bodyCruzados = cruzadosSorted.length ? cruzadosSorted.map(k => [k, cruzados[k]]) : [];
-  bodyCruzados.push(['TOTAL', bodyCruzados.reduce((sum, row) => sum + row[1], 0)]);
-
-  doc.text("ASESOR POR CLÍNICA", 14, finalY);
-  doc.autoTable({
-    ...autoTableConfig,
-    startY: finalY + 4,
-    head: [['Asesor — Clínica', 'Pacientes']],
-    body: bodyCruzados,
-    tableWidth: 85
-  });
-
-  finalY = doc.lastAutoTable.finalY + 15;
-
-  // Si no cabe para la tabla larga, salta página
-  if (finalY > doc.internal.pageSize.height - 40) {
+    // --- DIBUJAR GRÁFICAS EN PDF ---
+    let yPos = 110;
+    
+    // Fila 1: Origen y Clínica
+    doc.addImage(chart3_b64, 'PNG', 14, yPos, 80, 80);
+    doc.addImage(chart2_b64, 'PNG', 105, yPos, 80, 80);
+    
+    yPos += 85;
+    
+    // Tendencia Lineal
+    doc.addImage(chart6_b64, 'PNG', 14, yPos, 180, 75);
+    
+    // --- PAGINA 2 ---
     doc.addPage();
-    finalY = 20;
+    yPos = 20;
+
+    // Rendimiento por asesor y Convenios
+    doc.addImage(chart1_b64, 'PNG', 14, yPos, 100, 60);
+    doc.addImage(chart4_b64, 'PNG', 120, yPos, 70, 60);
+
+    yPos += 70;
+
+    // Asesor por clínica apilada
+    doc.addImage(chart5_b64, 'PNG', 14, yPos, 160, 90);
+
+
+    // Footer en todas las páginas
+    const pages = doc.internal.getNumberOfPages();
+    for (let j = 1; j <= pages; j++) {
+      doc.setPage(j);
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      doc.text("Dental Más Fácil — Reporte confidencial", 14, doc.internal.pageSize.height - 10);
+      doc.text(`Página ${j} de ${pages}`, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 10, { align: 'right' });
+    }
+
+    doc.save(fileName);
+  } catch (err) {
+    console.error(err);
+    alert("Ocurrió un error al generar el reporte.");
+  } finally {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
   }
-
-  // Listado completo de pacientes
-  doc.text("Listado completo de pacientes", 14, finalY);
-  doc.autoTable({
-    ...autoTableConfig,
-    startY: finalY + 4,
-    headStyles: { ...autoTableConfig.headStyles, fontSize: 9 },
-    bodyStyles: { fontSize: 8 },
-    head: [['Fecha', 'Paciente', 'Clínica', 'Asesor', 'Paquete', 'Origen']],
-    body: filtered.map(r => [
-      new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-MX', {day:'2-digit', month:'short'}),
-      r.nombre,
-      r.clinica,
-      r.asesor,
-      r.paquete,
-      r.origen
-    ]),
-    didParseCell: null // No total row for the full list
-  });
-
-  // Footer con paginación
-  const pages = doc.internal.getNumberOfPages();
-  for (let j = 1; j <= pages; j++) {
-    doc.setPage(j);
-    doc.setFontSize(9);
-    doc.setTextColor(150, 150, 150);
-    doc.text("Dental Más Fácil — Reporte confidencial", 14, doc.internal.pageSize.height - 10);
-    doc.text(`Página ${j} de ${pages}`, doc.internal.pageSize.width - 14, doc.internal.pageSize.height - 10, { align: 'right' });
-  }
-
-  doc.save(fileName);
 };
 
 renderAll();
