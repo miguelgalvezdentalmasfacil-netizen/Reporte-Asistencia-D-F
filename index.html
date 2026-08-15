@@ -852,6 +852,58 @@ function actualizarMesesPdf() {
 }
 
 // --- HELPER PARA CHART A BASE64 ---
+const drawLabelsPlugin = {
+  id: 'drawLabels',
+  afterDatasetsDraw: (chart) => {
+    const { ctx } = chart;
+    ctx.save();
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    let totalSum = 0;
+    if(chart.config.type === 'doughnut' || chart.config.type === 'pie') {
+      chart.data.datasets.forEach(ds => {
+        ds.data.forEach(v => totalSum += (v || 0));
+      });
+    }
+
+    chart.data.datasets.forEach((dataset, i) => {
+      const meta = chart.getDatasetMeta(i);
+      if (meta.hidden) return;
+      meta.data.forEach((element, index) => {
+        const value = dataset.data[index];
+        if(!value || value === 0) return;
+
+        let text = value.toString();
+        if (chart.config.type === 'bar') {
+          ctx.fillStyle = '#475569';
+          if(chart.config.options.indexAxis === 'y') {
+             ctx.textAlign = 'left';
+             ctx.fillText(text, element.x + 5, element.y);
+          } else {
+             ctx.textAlign = 'center';
+             ctx.textBaseline = 'bottom';
+             ctx.fillText(text, element.x, element.y - 5);
+          }
+        } else if(chart.config.type === 'doughnut' || chart.config.type === 'pie') {
+          ctx.fillStyle = '#FFFFFF';
+          const center = element.tooltipPosition();
+          let pct = Math.round((value / totalSum) * 100);
+          text = `${value} (${pct}%)`;
+          ctx.fillText(text, center.x, center.y);
+        } else if(chart.config.type === 'line') {
+          ctx.fillStyle = '#0EA5E9';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(text, element.x, element.y - 8);
+        }
+      });
+    });
+    ctx.restore();
+  }
+};
+
 async function renderChartToBase64(config, width, height) {
   return new Promise((resolve) => {
     const canvas = document.createElement('canvas');
@@ -871,6 +923,7 @@ async function renderChartToBase64(config, width, height) {
     mergedConfig.options.animation = false;
     mergedConfig.options.responsive = false;
     mergedConfig.options.devicePixelRatio = 2;
+    mergedConfig.plugins = [drawLabelsPlugin];
 
     const chart = new Chart(canvas, mergedConfig);
     
@@ -879,8 +932,16 @@ async function renderChartToBase64(config, width, height) {
       chart.destroy();
       document.body.removeChild(container);
       resolve(b64);
-    }, 150); // slight delay to ensure canvas paints fully
+    }, 150);
   });
+}
+
+function addInsight(doc, text, x, y, maxWidth) {
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  const lines = doc.splitTextToSize(text, maxWidth);
+  doc.text(lines, x, y);
 }
 
 document.getElementById('btnDownloadPdf').onclick = async () => {
@@ -901,15 +962,15 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
   btn.disabled = true;
 
   try {
-    const [y, mStr] = ym.split('-');
+    const [y_yr, mStr] = ym.split('-');
     const mesLabel = monthNames[parseInt(mStr,10)-1];
-    const title = `Reporte Mensual de Ventas — ${mesLabel} ${y}`;
-    const fileName = `Reporte_Ventas_DentalMasFacil_${mesLabel}_${y}.pdf`;
+    const title = `Reporte Mensual de Ventas — ${mesLabel} ${y_yr}`;
+    const fileName = `Reporte_Ventas_DentalMasFacil_${mesLabel}_${y_yr}.pdf`;
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    const PRIMARY_COLOR = [14, 165, 233]; // #0EA5E9
+    const PRIMARY_COLOR = [14, 165, 233];
     const TEXT_COLOR = [30, 41, 59];
 
     doc.setFont("helvetica");
@@ -931,15 +992,12 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     doc.setFontSize(22);
     doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
     doc.text("Dental Más Fácil", 52, 22);
-    
     doc.setFontSize(14);
     doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
     doc.text(title, 52, 30);
-    
     doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
     doc.setLineWidth(0.5);
     doc.line(14, 38, 196, 38);
-
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     const now = new Date();
@@ -979,15 +1037,12 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
       const row = Math.floor(idx / 4);
       const cx = startX + (col * (cardW + gap));
       const cy = startY + (row * (cardH + gap));
-
       doc.setDrawColor(220, 220, 220);
       doc.setFillColor(250, 250, 250);
       doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'FD');
-
       doc.setTextColor(150, 150, 150);
       doc.setFont("helvetica", "bold");
       doc.text(kpi.label.toUpperCase(), cx + 4, cy + 6);
-      
       doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(14);
@@ -999,7 +1054,45 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     const chartWidth = 600;
     const chartHeight = 350;
 
-    // 1. Rendimiento por asesor (Barras Horizontales)
+    // 1. Asistencia por clínica (Dona)
+    const countsClinica = {};
+    CLINICAS.forEach(c => countsClinica[c] = 0);
+    filtered.forEach(r => { if(countsClinica[r.clinica] !== undefined) countsClinica[r.clinica]++; });
+    const clinicasSorted = [...CLINICAS].sort((a,b)=>countsClinica[b]-countsClinica[a]);
+    const chart2_b64 = await renderChartToBase64({
+      type: 'doughnut',
+      data: {
+        labels: CLINICAS,
+        datasets: [{ data: CLINICAS.map(c => countsClinica[c]), backgroundColor: ['#0EA5E9','#F59E0B','#8B5CF6','#10B981'] }]
+      },
+      options: { plugins: { title: { display: true, text: 'Pacientes por Clínica' } } }
+    }, 400, 400);
+
+    // 2. Origen (Cuenta propia vs Por Asesor) (Pastel)
+    const chart3_b64 = await renderChartToBase64({
+      type: 'pie',
+      data: {
+        labels: ['Cuenta Propia', 'Por Asesor'],
+        datasets: [{ data: [cp, ases], backgroundColor: ['#10B981', '#F59E0B'] }]
+      },
+      options: { plugins: { title: { display: true, text: 'Origen Principal' } } }
+    }, 400, 400);
+
+    // 3. Tendencia (Línea)
+    const timeline = {};
+    filtered.forEach(r => { timeline[r.fecha] = (timeline[r.fecha] || 0) + 1; });
+    const datesSorted = Object.keys(timeline).sort();
+    const peakDay = datesSorted.length ? datesSorted.reduce((a,b)=>timeline[a] > timeline[b] ? a : b) : 'N/A';
+    const chart6_b64 = await renderChartToBase64({
+      type: 'line',
+      data: {
+        labels: datesSorted.length ? datesSorted : ['Sin datos'],
+        datasets: [{ label: 'Registros', data: datesSorted.length ? datesSorted.map(d => timeline[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
+      },
+      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia Mensual' } }, scales: { y: { beginAtZero: true } } }
+    }, chartWidth + 200, chartHeight);
+
+    // 4. Rendimiento por asesor (Barras Horizontales)
     const countsAsesor = {};
     filtered.forEach(r => {
       if(r.asesor && r.asesor !== 'Sin asignar') countsAsesor[r.asesor] = (countsAsesor[r.asesor] || 0) + 1;
@@ -1011,33 +1104,10 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
         labels: asesoresSorted.length ? asesoresSorted : ['Sin datos'],
         datasets: [{ label: 'Pacientes', data: asesoresSorted.length ? asesoresSorted.map(a => countsAsesor[a]) : [0], backgroundColor: '#0EA5E9' }]
       },
-      options: { indexAxis: 'y', plugins: { legend: { display: false }, title: { display: true, text: 'Rendimiento por Asesor' } } }
+      options: { indexAxis: 'y', plugins: { legend: { display: false }, title: { display: true, text: 'Rendimiento por Asesor' } }, scales: { x: { suggestedMax: (asesoresSorted.length ? countsAsesor[asesoresSorted[0]] : 0) + 2 } } }
     }, chartWidth, chartHeight);
 
-    // 2. Asistencia por clínica (Dona)
-    const countsClinica = {};
-    CLINICAS.forEach(c => countsClinica[c] = 0);
-    filtered.forEach(r => { if(countsClinica[r.clinica] !== undefined) countsClinica[r.clinica]++; });
-    const chart2_b64 = await renderChartToBase64({
-      type: 'doughnut',
-      data: {
-        labels: CLINICAS,
-        datasets: [{ data: CLINICAS.map(c => countsClinica[c]), backgroundColor: ['#0EA5E9','#F59E0B','#8B5CF6','#10B981'] }]
-      },
-      options: { plugins: { title: { display: true, text: 'Pacientes por Clínica' } } }
-    }, 400, 400);
-
-    // 3. Origen (Cuenta propia vs Por Asesor) (Pastel)
-    const chart3_b64 = await renderChartToBase64({
-      type: 'pie',
-      data: {
-        labels: ['Cuenta Propia', 'Por Asesor'],
-        datasets: [{ data: [cp, ases], backgroundColor: ['#10B981', '#F59E0B'] }]
-      },
-      options: { plugins: { title: { display: true, text: 'Origen Principal' } } }
-    }, 400, 400);
-
-    // 4. Convenio (De asesor vs cuenta propia) (Barras vertical)
+    // 5. Convenio (De asesor vs cuenta propia)
     let convAsesor = 0, convPropia = 0;
     filtered.forEach(r => {
       if(r.origen.includes('Convenio')) {
@@ -1051,10 +1121,10 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
         labels: ['De asesor', 'Cuenta propia'],
         datasets: [{ label: 'Convenios', data: [convAsesor, convPropia], backgroundColor: '#8B5CF6' }]
       },
-      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Desglose de Convenios' } } }
+      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Desglose de Convenios' } }, scales: { y: { suggestedMax: Math.max(convAsesor, convPropia) + 2 } } }
     }, 400, 350);
 
-    // 5. Asesor por clínica (Stacked Bar)
+    // 6. Asesor por clínica (Grouped Bar)
     const cruzados = {};
     CLINICAS.forEach(c => {
       cruzados[c] = {};
@@ -1065,59 +1135,118 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
         cruzados[r.clinica][r.asesor]++;
       }
     });
+    let dominatingText = [];
+    CLINICAS.forEach(c => {
+      let topA = '', maxV = 0;
+      asesoresSorted.forEach(a => { if(cruzados[c][a] > maxV){ maxV = cruzados[c][a]; topA = a; } });
+      if(maxV > 0) dominatingText.push(`${topA} en ${c}`);
+    });
     const colors = ['#0EA5E9','#F59E0B','#8B5CF6','#10B981','#EC4899'];
-    const datasetsStacked = asesoresSorted.map((a, i) => ({
+    const datasetsGrouped = asesoresSorted.map((a, i) => ({
       label: a,
       data: CLINICAS.map(c => cruzados[c][a]),
       backgroundColor: colors[i % colors.length]
     }));
     const chart5_b64 = await renderChartToBase64({
       type: 'bar',
-      data: { labels: CLINICAS, datasets: datasetsStacked },
-      options: { plugins: { title: { display: true, text: 'Asesor por Clínica' } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+      data: { labels: CLINICAS, datasets: datasetsGrouped },
+      options: { plugins: { title: { display: true, text: 'Asesor por Clínica' } }, scales: { x: { stacked: false }, y: { stacked: false } } }
     }, chartWidth, chartHeight);
 
-    // 6. Tendencia (Línea)
-    const timeline = {};
-    filtered.forEach(r => {
-      timeline[r.fecha] = (timeline[r.fecha] || 0) + 1;
-    });
-    const datesSorted = Object.keys(timeline).sort();
-    const chart6_b64 = await renderChartToBase64({
-      type: 'line',
-      data: {
-        labels: datesSorted.length ? datesSorted : ['Sin datos'],
-        datasets: [{ label: 'Registros', data: datesSorted.length ? datesSorted.map(d => timeline[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
-      },
-      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia Mensual' } }, scales: { y: { beginAtZero: true } } }
-    }, chartWidth + 200, chartHeight);
 
-
-    // --- DIBUJAR GRÁFICAS EN PDF ---
+    // --- DIBUJAR PÁGINA 1 ---
     let yPos = 110;
-    
-    // Fila 1: Origen y Clínica
     doc.addImage(chart3_b64, 'PNG', 14, yPos, 80, 80);
+    let pctAses = total > 0 ? Math.round((ases/total)*100) : 0;
+    let pctProp = total > 0 ? Math.round((cp/total)*100) : 0;
+    addInsight(doc, `El ${pctAses}% llegó por asesores; el ${pctProp}% fue cuenta propia de la clínica.`, 14, yPos + 85, 80);
+
     doc.addImage(chart2_b64, 'PNG', 105, yPos, 80, 80);
+    if(clinicasSorted.length > 0 && countsClinica[clinicasSorted[0]] > 0) {
+      addInsight(doc, `${clinicasSorted[0]} tuvo más pacientes (${countsClinica[clinicasSorted[0]]}); ${clinicasSorted[clinicasSorted.length-1]} tuvo menos (${countsClinica[clinicasSorted[clinicasSorted.length-1]]}).`, 105, yPos + 85, 80);
+    }
     
-    yPos += 85;
+    yPos += 105;
     
-    // Tendencia Lineal
     doc.addImage(chart6_b64, 'PNG', 14, yPos, 180, 75);
+    if(peakDay !== 'N/A') {
+      addInsight(doc, `El día de mayor actividad fue el ${peakDay} con ${timeline[peakDay]} pacientes.`, 14, yPos + 80, 180);
+    }
     
-    // --- PAGINA 2 ---
+    // --- PÁGINA 2 ---
     doc.addPage();
     yPos = 20;
 
-    // Rendimiento por asesor y Convenios
     doc.addImage(chart1_b64, 'PNG', 14, yPos, 100, 60);
+    if(asesoresSorted.length > 0) {
+      addInsight(doc, `${asesoresSorted[0]} fue el asesor top del mes con ${countsAsesor[asesoresSorted[0]]} pacientes.`, 14, yPos + 65, 100);
+    }
+
     doc.addImage(chart4_b64, 'PNG', 120, yPos, 70, 60);
+    addInsight(doc, `De ${conv} convenios en total, ${convAsesor} fueron por asesor y ${convPropia} llegaron directo.`, 120, yPos + 65, 70);
 
-    yPos += 70;
+    yPos += 85;
 
-    // Asesor por clínica apilada
     doc.addImage(chart5_b64, 'PNG', 14, yPos, 160, 90);
+    if(dominatingText.length > 0) {
+      addInsight(doc, `Liderazgo por plaza: ${dominatingText.join(', ')}.`, 14, yPos + 95, 160);
+    }
 
+    // --- PÁGINA 3 (TARJETAS INDIVIDUALES) ---
+    if(asesoresSorted.length > 0) {
+      doc.addPage();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+      doc.text("Rendimiento Individual por Asesor", 14, 20);
+      
+      let cardY = 30;
+      for(let a of asesoresSorted) {
+        if(cardY > 240) {
+          doc.addPage();
+          cardY = 20;
+        }
+        
+        const pcts = filtered.filter(r => r.asesor === a);
+        const c_clinicas = [...new Set(pcts.map(r=>r.clinica))];
+        
+        const tl = {};
+        pcts.forEach(r => { tl[r.fecha] = (tl[r.fecha] || 0) + 1; });
+        const ds = Object.keys(tl).sort();
+        
+        const b64_asesor = await renderChartToBase64({
+          type: 'bar',
+          data: {
+            labels: ds.length ? ds : [''],
+            datasets: [{ data: ds.length ? ds.map(d=>tl[d]) : [0], backgroundColor: '#0EA5E9' }]
+          },
+          options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { display: false } } }
+        }, 150, 60);
+        
+        doc.setDrawColor(220, 220, 220);
+        doc.setFillColor(250, 250, 250);
+        doc.roundedRect(14, cardY, 180, 40, 2, 2, 'FD');
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
+        doc.text(a, 18, cardY + 10);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Atendió un total de ${pcts.length} pacientes en: ${c_clinicas.join(', ')}`, 18, cardY + 18);
+        
+        let msg = "";
+        if(a === asesoresSorted[0]) msg = `¡${a} fue el asesor número 1 este mes!`;
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100, 100, 100);
+        doc.text(msg, 18, cardY + 26);
+        
+        doc.addImage(b64_asesor, 'PNG', 140, cardY + 5, 50, 30);
+        
+        cardY += 45;
+      }
+    }
 
     // Footer en todas las páginas
     const pages = doc.internal.getNumberOfPages();
