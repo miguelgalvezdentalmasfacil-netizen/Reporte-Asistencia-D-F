@@ -1382,7 +1382,7 @@ cargarDesdeSheets();
 // PWA Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
+    navigator.serviceWorker.register('/Reporte-Asistencia-D-F/OneSignalSDKWorker.js', { scope: '/Reporte-Asistencia-D-F/' })
       .catch(err => console.error('Error registrando SW', err));
   });
 }
@@ -1391,11 +1391,11 @@ if ('serviceWorker' in navigator) {
 window.OneSignalDeferred = window.OneSignalDeferred || [];
 OneSignalDeferred.push(async function(OneSignal) {
   await OneSignal.init({
-    appId: "5d3771b1-d067-48fd-9bdd-581bce3dbd43", // <-- Tu App ID de OneSignal
+    appId: "5d3771b1-d067-48fd-9bdd-581bce3dbd43",
     safari_web_id: "",
     notifyButton: { enable: false },
     serviceWorkerParam: { scope: '/Reporte-Asistencia-D-F/' },
-    serviceWorkerPath: 'sw.js'
+    serviceWorkerPath: '/Reporte-Asistencia-D-F/OneSignalSDKWorker.js'
   });
   
   // Pedir permiso de notificaciones a los administradores al abrir la app instalada
