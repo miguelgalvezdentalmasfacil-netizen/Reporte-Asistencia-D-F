@@ -1391,15 +1391,15 @@ if ('serviceWorker' in navigator) {
 window.OneSignalDeferred = window.OneSignalDeferred || [];
 OneSignalDeferred.push(async function(OneSignal) {
   await OneSignal.init({
-    appId: "TU_APP_ID_AQUI", // <-- Reemplaza esto con tu App ID de OneSignal
+    appId: "5d3771b1-d067-48fd-9bdd-581bce3dbd43", // <-- Tu App ID de OneSignal
     safari_web_id: "",
     notifyButton: { enable: false },
     serviceWorkerParam: { scope: '/Reporte-Asistencia-D-F/' },
     serviceWorkerPath: 'sw.js'
   });
   
-  // Opcional: Descomenta la siguiente línea si quieres pedir permiso de notificaciones nada más cargar la app
-  // OneSignal.Slidedown.promptPush();
+  // Pedir permiso de notificaciones a los administradores al abrir la app instalada
+  OneSignal.Slidedown.promptPush();
 });
 </script>
 

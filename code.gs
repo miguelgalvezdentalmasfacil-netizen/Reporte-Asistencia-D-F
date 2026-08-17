@@ -44,6 +44,9 @@ function doPost(e) {
     ];
 
     sheet.appendRow(row);
+    
+    // Llamar a OneSignal (usando los datos disponibles en este script o adaptarlo a los de la clínica)
+    enviarNotificacionOneSignal(data.solicitante || 'Nuevo', data.sucursal || 'Clínica');
 
     return jsonResponse_({ success: true, folio: nextFolio });
 
@@ -93,3 +96,50 @@ function jsonResponse_(obj) {
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
+
+// =====================================================================
+// INTEGRACIÓN ONESIGNAL - PUSH NOTIFICATIONS
+// =====================================================================
+// API Key de OneSignal: La encuentras en el panel de OneSignal ->
+// Settings -> Keys & IDs -> "REST API Key".
+// Pega esa clave en la variable ONESIGNAL_REST_API_KEY a continuación.
+
+const ONESIGNAL_APP_ID = "5d3771b1-d067-48fd-9bdd-581bce3dbd43";
+const ONESIGNAL_REST_API_KEY = "TU_REST_API_KEY_AQUI"; // <-- REEMPLAZAR AQUÍ
+
+function enviarNotificacionOneSignal(nombre, clinica) {
+  if (!ONESIGNAL_REST_API_KEY || ONESIGNAL_REST_API_KEY === "TU_REST_API_KEY_AQUI") {
+    // No hacer nada si no se ha configurado la API Key
+    return;
+  }
+  
+  const payload = {
+    app_id: ONESIGNAL_APP_ID,
+    included_segments: ["Subscribed Users"],
+    contents: {
+      en: "Nuevo paciente registrado: " + nombre + " en " + clinica,
+      es: "Nuevo paciente registrado: " + nombre + " en " + clinica
+    },
+    headings: {
+      en: "Nueva Asistencia",
+      es: "Nueva Asistencia"
+    }
+  };
+  
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      "Authorization": "Basic " + ONESIGNAL_REST_API_KEY
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  
+  try {
+    UrlFetchApp.fetch("https://onesignal.com/api/v1/notifications", options);
+  } catch (e) {
+    console.error("Error al enviar notificación de OneSignal: " + e.toString());
+  }
+}
+
