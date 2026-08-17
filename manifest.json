@@ -1,0 +1,21 @@
+{
+  "name": "Dental Más Fácil - Asistencia",
+  "short_name": "DMF Asistencia",
+  "description": "Dashboard de Registro de Asistencia",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0EA5E9",
+  "icons": [
+    {
+      "src": "logo-dental-mas-facil.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo-dental-mas-facil.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

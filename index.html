@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Registro de Asistencia — Dental Más Fácil</title>
 <link rel="icon" type="image/png" href="logo-dental-mas-facil.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0EA5E9">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -1373,6 +1375,32 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
 
 renderAll();
 cargarDesdeSheets();
+</script>
+
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .catch(err => console.error('Error registrando SW', err));
+  });
+}
+
+// OneSignal Push Notifications Init
+window.OneSignalDeferred = window.OneSignalDeferred || [];
+OneSignalDeferred.push(async function(OneSignal) {
+  await OneSignal.init({
+    appId: "TU_APP_ID_AQUI", // <-- Reemplaza esto con tu App ID de OneSignal
+    safari_web_id: "",
+    notifyButton: { enable: false },
+    serviceWorkerParam: { scope: '/Reporte-Asistencia-D-F/' },
+    serviceWorkerPath: 'sw.js'
+  });
+  
+  // Opcional: Descomenta la siguiente línea si quieres pedir permiso de notificaciones nada más cargar la app
+  // OneSignal.Slidedown.promptPush();
+});
 </script>
 
 </body>
