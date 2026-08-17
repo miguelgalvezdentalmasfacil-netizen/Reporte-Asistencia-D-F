@@ -134,7 +134,7 @@
 
   /* ---------- CLINIC STRIP (signature element) ---------- */
   .clinic-strip{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;
+    display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;
   }
   .clinic-card{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
@@ -153,14 +153,14 @@
   .clinic-card .nombre{
     font-family:'Fraunces',serif;font-size:17px;font-weight:600;margin:3px 0 12px;color:var(--ink);
   }
-  .clinic-card .count-row{display:flex;align-items:baseline;justify-content:space-between;}
+  .clinic-card .count-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;}
   .clinic-card .count{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;color:var(--primary-dark);}
   .clinic-card .count-label{font-size:11px;color:var(--muted-2);}
   .clinic-card .bar-track{height:4px;border-radius:2px;background:var(--line-soft);margin-top:10px;overflow:hidden;}
   .clinic-card .bar-fill{height:100%;background:var(--primary);border-radius:2px;transition:width .4s ease;}
 
   /* ---------- LAYOUT ---------- */
-  .grid{display:grid;grid-template-columns:360px 1fr;gap:22px;align-items:start;}
+  .grid{display:grid;grid-template-columns:360px 1fr;gap:24px;align-items:start;}
 
   .panel{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
@@ -186,6 +186,7 @@
 
   .chip-group{display:flex;flex-wrap:wrap;gap:8px;}
   .chip{
+    flex: 1 1 auto;text-align:center;
     padding:10px 16px;border:1px solid var(--line);border-radius:999px;font-size:14px;font-weight:600;
     color:var(--muted);cursor:pointer;background:var(--paper);user-select:none;
     transition:all .12s ease;
@@ -206,23 +207,24 @@
   .form-error{font-size:12.5px;color:var(--danger);margin-top:8px;display:none;}
 
   /* stats row */
-  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
   .mini-stat{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-    padding:14px 16px;box-shadow:var(--shadow);
+    padding:16px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;justify-content:center;
   }
-  .mini-stat .label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-2);font-weight:700;}
-  .mini-stat .value{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;margin-top:6px;color:var(--ink);}
+  .mini-stat .label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted-2);font-weight:700;line-height:1.3;margin-bottom:4px;}
+  .mini-stat .value{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;margin-top:2px;color:var(--ink);}
   .mini-stat .sub{font-size:11.5px;color:var(--muted);margin-top:3px;}
 
   /* charts row */
-  .charts-row{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:18px;}
+  .charts-row{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:24px;}
   .chart-card{padding:16px 18px;height:240px;display:flex;flex-direction:column;position:relative;}
   .chart-card h3{font-size:13px;font-weight:700;color:var(--muted);margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em;}
   .canvas-wrapper{flex:1;position:relative;min-height:0;width:100%;}
 
   /* table panel */
   .table-panel .panel-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+  .table-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   .filters{display:flex;gap:8px;flex-wrap:wrap;padding:0 20px 16px;}
   .filters select, .filters input{
     padding:10px 13px;border:1px solid var(--line);border-radius:8px;font-size:16px;
@@ -282,11 +284,11 @@
     .stats-row{grid-template-columns:1fr;}
     .filters{flex-direction:column;align-items:stretch;}
     .filters select, .filters input, #btnDownloadPdf{width:100%;flex:none;}
+    .table-controls { flex-direction:column; align-items:stretch; width:100%; }
+    .table-controls > * { width:100%; text-align:center; }
     .panel-body, .panel-head{padding:16px 14px;}
     .brand{flex-direction:column;align-items:flex-start;}
     .brand-mark{height:38px;}
-    header.top{gap:12px;margin-bottom:20px;}
-  }
 
   .count-tag{
     background:var(--primary-tint);color:var(--primary-dark);font-size:12px;font-weight:700;
@@ -454,9 +456,9 @@
             <div class="eyebrow">Bitácora</div>
             <h2>Pacientes registrados</h2>
           </div>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <select id="pdfMonthSelect" style="padding:6px 10px; border-radius:6px; border:1px solid var(--line); font-family:'Inter',sans-serif; font-size:12.5px; outline:none; background:var(--paper); color:var(--ink);"></select>
-            <button id="btnDownloadPdf" class="btn-secondary" style="padding:7px 12px; font-size:12.5px; margin:0;">Descargar reporte PDF</button>
+          <div class="table-controls">
+            <select id="pdfMonthSelect" style="padding:8px 10px; border-radius:6px; border:1px solid var(--line); font-family:'Inter',sans-serif; font-size:13.5px; outline:none; background:var(--paper); color:var(--ink);"></select>
+            <button id="btnDownloadPdf" class="btn-secondary" style="padding:8px 12px; font-size:13.5px; margin:0;">Descargar reporte PDF</button>
             <span class="count-tag" id="tableCount">0 registros</span>
           </div>
         </div>
@@ -508,6 +510,28 @@
 </div>
 
 <script>
+const emptyChartPlugin = {
+  id: 'emptyChart',
+  afterDraw(chart) {
+    let empty = true;
+    for(let d of chart.data.datasets){
+      for(let v of d.data) { if(v > 0) empty = false; }
+    }
+    if(empty) {
+      const {ctx, width, height} = chart;
+      chart.clear();
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '14px Inter';
+      ctx.fillStyle = '#8CA3A0';
+      ctx.fillText('Sin datos para mostrar', width / 2, height / 2);
+      ctx.restore();
+    }
+  }
+};
+Chart.register(emptyChartPlugin);
+
 const CLINICAS = ["Tijuana", "Mexicali - Obregón", "Mexicali - Villa Verde", "Ensenada"];
 let registros = [];
 let selPaquete = null, selOrigen = [], clinicFilterActive = null;
