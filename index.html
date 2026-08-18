@@ -1393,7 +1393,10 @@ OneSignalDeferred.push(async function(OneSignal) {
   await OneSignal.init({
     appId: "5d3771b1-d067-48fd-9bdd-581bce3dbd43",
     safari_web_id: "",
-    notifyButton: { enable: false },
+    notifyButton: { 
+      enable: true, // <-- Habilitado para forzar la suscripción manual si falla el slidedown
+      displayPredicate: function() { return true; }
+    },
     serviceWorkerParam: { scope: '/Reporte-Asistencia-D-F/' },
     serviceWorkerPath: '/Reporte-Asistencia-D-F/OneSignalSDKWorker.js'
   });
