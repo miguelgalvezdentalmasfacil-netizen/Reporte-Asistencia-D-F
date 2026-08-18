@@ -344,6 +344,37 @@
     </div>
   </div>
 
+  <!-- DEEP LINK MODAL (Paciente Registrado) -->
+  <div class="modal-overlay" id="deepLinkModal">
+    <div class="modal-box" style="max-width: 400px;">
+      <div class="modal-head" style="border-bottom: 1px solid var(--line-soft); padding-bottom: 16px; margin-bottom: 16px;">
+        <div>
+          <div class="eyebrow" style="color: var(--primary);">Paciente Registrado</div>
+          <h2 id="dlNombre" style="margin-top: 4px;">Nombre</h2>
+        </div>
+        <button class="modal-close" onclick="document.getElementById('deepLinkModal').classList.remove('show')">✕</button>
+      </div>
+      <div class="modal-body" style="font-size: 15px; line-height: 1.6; color: var(--ink);">
+        <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 8px;">
+          <strong style="color: var(--muted-2);">Clínica:</strong> <span id="dlClinica"></span>
+        </div>
+        <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 8px;">
+          <strong style="color: var(--muted-2);">Asesor:</strong> <span id="dlAsesor"></span>
+        </div>
+        <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 8px;">
+          <strong style="color: var(--muted-2);">Paquete:</strong> <span id="dlPaquete"></span>
+        </div>
+        <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 8px;">
+          <strong style="color: var(--muted-2);">Origen:</strong> <span id="dlOrigen"></span>
+        </div>
+        <div style="display: grid; grid-template-columns: 100px 1fr; gap: 8px; margin-bottom: 24px;">
+          <strong style="color: var(--muted-2);">Fecha:</strong> <span id="dlFecha"></span>
+        </div>
+        <button class="submit-btn" onclick="document.getElementById('deepLinkModal').classList.remove('show')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CLINIC SIGNATURE STRIP -->
   <div class="clinic-strip" id="clinicStrip"></div>
 
@@ -561,8 +592,28 @@ async function cargarDesdeSheets(){
     registros = data.map(r => ({ ...r, id: r.id || Date.now() + Math.random() }));
     setConnStatus('on', 'Conectado');
     renderAll();
+    
+    // Al terminar de cargar todo, checamos si venimos de una notificación
+    checkDeepLink();
   } catch(err){
     setConnStatus('off', 'Sin conexión');
+  }
+}
+
+function checkDeepLink() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const recordId = urlParams.get('ver_registro');
+  if(recordId) {
+    const rec = registros.find(r => String(r.id) === String(recordId));
+    if(rec) {
+      document.getElementById('dlNombre').textContent = rec.nombre;
+      document.getElementById('dlClinica').textContent = rec.clinica;
+      document.getElementById('dlAsesor').textContent = rec.asesor || 'N/A';
+      document.getElementById('dlPaquete').textContent = rec.paquete;
+      document.getElementById('dlOrigen').textContent = rec.origen;
+      document.getElementById('dlFecha').textContent = rec.fecha;
+      document.getElementById('deepLinkModal').classList.add('show');
+    }
   }
 }
 
