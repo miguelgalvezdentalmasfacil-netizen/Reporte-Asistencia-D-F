@@ -602,6 +602,7 @@ async function cargarDesdeSheets(){
   }
 }
 
+let deepLinkRetries = 0;
 function checkDeepLink() {
   const urlParams = new URLSearchParams(window.location.search);
   const recordId = urlParams.get('ver_registro');
@@ -616,6 +617,14 @@ function checkDeepLink() {
       document.getElementById('dlOrigen').textContent = rec.origen;
       document.getElementById('dlFecha').textContent = rec.fecha;
       document.getElementById('deepLinkModal').classList.add('show');
+      deepLinkRetries = 0; // reset
+    } else {
+      // Si no lo encuentra, es porque Google Sheets aún lo está guardando (Race condition). Reintentamos 3 veces.
+      if(deepLinkRetries < 4) {
+        deepLinkRetries++;
+        console.log("Registro no encontrado, reintentando en 2 segundos... Intento: " + deepLinkRetries);
+        setTimeout(() => cargarDesdeSheets(), 2000);
+      }
     }
   }
 }
