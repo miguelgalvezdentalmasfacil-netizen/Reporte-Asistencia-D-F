@@ -605,8 +605,13 @@ async function cargarDesdeSheets(){
 let deepLinkRetries = 0;
 function checkDeepLink() {
   const urlParams = new URLSearchParams(window.location.search);
-  const recordId = urlParams.get('ver_registro');
+  let recordId = urlParams.get('ver_registro');
   
+  // Si iOS bloquea los parámetros ?, buscamos en el hash (ej. #123456)
+  if(!recordId && window.location.hash) {
+    recordId = window.location.hash.replace('#', '');
+  }
+
   if(recordId) {
     const rec = registros.find(r => String(r.id) === String(recordId));
     if(rec) {
