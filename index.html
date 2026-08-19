@@ -603,6 +603,7 @@ async function cargarDesdeSheets(){
 function checkDeepLink() {
   const urlParams = new URLSearchParams(window.location.search);
   const recordId = urlParams.get('ver_registro');
+  
   if(recordId) {
     const rec = registros.find(r => String(r.id) === String(recordId));
     if(rec) {
@@ -613,6 +614,8 @@ function checkDeepLink() {
       document.getElementById('dlOrigen').textContent = rec.origen;
       document.getElementById('dlFecha').textContent = rec.fecha;
       document.getElementById('deepLinkModal').classList.add('show');
+    } else {
+      alert("⚠️ Error: Se detectó el enlace secreto para abrir al paciente (ID: " + recordId + "), pero no se encontró en tu base de datos. Tal vez aún no se actualiza.");
     }
   }
 }
