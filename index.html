@@ -586,7 +586,9 @@ async function cargarDesdeSheets(){
   if(!APPS_SCRIPT_URL){ setConnStatus('off', 'Sin conectar'); return; }
   setConnStatus('checking', 'Conectando...');
   try{
-    const res = await fetch(APPS_SCRIPT_URL, { method:'GET' });
+    // Evitamos caché para que siempre traiga el último registro
+    const urlCacheBuster = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+    const res = await fetch(urlCacheBuster, { method:'GET', cache: 'no-store' });
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     registros = data.map(r => ({ ...r, id: r.id || Date.now() + Math.random() }));
@@ -614,8 +616,6 @@ function checkDeepLink() {
       document.getElementById('dlOrigen').textContent = rec.origen;
       document.getElementById('dlFecha').textContent = rec.fecha;
       document.getElementById('deepLinkModal').classList.add('show');
-    } else {
-      alert("⚠️ Error: Se detectó el enlace secreto para abrir al paciente (ID: " + recordId + "), pero no se encontró en tu base de datos. Tal vez aún no se actualiza.");
     }
   }
 }
