@@ -602,6 +602,10 @@ async function cargarDesdeSheets(){
   }
 }
 
+window.addEventListener('hashchange', () => {
+  checkDeepLink();
+});
+
 let deepLinkRetries = 0;
 function checkDeepLink() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -1471,6 +1475,15 @@ OneSignalDeferred.push(async function(OneSignal) {
   
   // Pedir permiso de notificaciones a los administradores al abrir la app instalada
   OneSignal.Slidedown.promptPush();
+
+  // Escuchar el clic en la notificación (incluso si iOS borra el enlace, OneSignal rescata la data oculta)
+  OneSignal.Notifications.addEventListener('click', function(event) {
+    const data = event.notification.additionalData;
+    if (data && data.registro_id) {
+      window.location.hash = data.registro_id;
+      checkDeepLink();
+    }
+  });
 });
 </script>
 
