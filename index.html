@@ -633,6 +633,8 @@ function checkDeepLink() {
         deepLinkRetries++;
         console.log("Registro no encontrado, reintentando en 2 segundos... Intento: " + deepLinkRetries);
         setTimeout(() => cargarDesdeSheets(), 2000);
+      } else {
+        alert("⚠️ Error final: El enlace secreto funcionó (ID: " + recordId + "), pero Google tardó demasiado en guardar o hubo un error en la base de datos.");
       }
     }
   }
