@@ -122,7 +122,7 @@ function getRegistros_() {
     }));
 }
 
-function escribirBloque_(sheet, colStart, tituloCount, filas) {
+function escribirBloque_(sheet, colStart, tituloCount, filas, separatorRows) {
   sheet.getRange(1, colStart + 3)
     .setValue(tituloCount)
     .setBackground('#34A853')
@@ -141,6 +141,14 @@ function escribirBloque_(sheet, colStart, tituloCount, filas) {
     sheet.getRange(3, colStart, filas.length, 4).setValues(filas);
     sheet.getRange(3, colStart + 1, filas.length, 1).setNumberFormat('dd/mm/yy');
     sheet.getRange(3, colStart + 3, filas.length, 1).setFontWeight('bold');
+    
+    if (separatorRows && separatorRows.length > 0) {
+      separatorRows.forEach(rowOffset => {
+        const rowRange = sheet.getRange(3 + rowOffset, colStart, 1, 4);
+        rowRange.setBackground('#EAF0EE').setFontWeight('bold').setFontColor('#0F7A6E');
+        sheet.getRange(3 + rowOffset, colStart + 1).setNumberFormat('@'); // Texto normal para que no intente ser fecha
+      });
+    }
   }
 
   sheet.setColumnWidth(colStart, 220);
@@ -169,15 +177,39 @@ function generarVistaPorAsesor() {
 
   asesores.forEach(asesor => {
     const grupo = porAsesor[asesor].sort((a, b) => a.fecha - b.fecha);
-    const filas = grupo.map(r => [r.nombre, r.fecha, CLINICA_CORTA[r.clinica] || r.clinica, asesor.toUpperCase()]);
-    escribirBloque_(sheet, colStart, grupo.length, filas);
+    
+    // Agrupar por mes
+    const porMes = {};
+    grupo.forEach(r => {
+      const key = Utilities.formatDate(r.fecha, Session.getScriptTimeZone(), 'yyyy-MM');
+      if (!porMes[key]) porMes[key] = [];
+      porMes[key].push(r);
+    });
+
+    let filasFinales = [];
+    let separatorRows = [];
+
+    Object.keys(porMes).sort().forEach(mesKey => {
+      const rowsMes = porMes[mesKey];
+      const [anio, mesNum] = mesKey.split('-');
+      const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1].toUpperCase() + ' ' + anio;
+      
+      separatorRows.push(filasFinales.length);
+      filasFinales.push([`--- ${nombreMes} ---`, '', '', `${rowsMes.length} pac.`]);
+      
+      rowsMes.forEach(r => {
+        filasFinales.push([r.nombre, r.fecha, CLINICA_CORTA[r.clinica] || r.clinica, asesor.toUpperCase()]);
+      });
+    });
+
+    escribirBloque_(sheet, colStart, grupo.length, filasFinales, separatorRows);
     colStart += BLOCK_COLS + GAP;
   });
 
   sheet.setFrozenRows(2);
 }
 
-function escribirBloqueClinica_(sheet, colStart, clinicaNombre, tituloCount, filas, header3) {
+function escribirBloqueClinica_(sheet, colStart, clinicaNombre, tituloCount, filas, header3, separatorRows) {
   sheet.getRange(1, colStart, 1, 2).merge().setValue(clinicaNombre)
     .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left').setFontColor('#5E7975');
 
@@ -199,6 +231,14 @@ function escribirBloqueClinica_(sheet, colStart, clinicaNombre, tituloCount, fil
     sheet.getRange(3, colStart, filas.length, 3).setValues(filas);
     sheet.getRange(3, colStart + 1, filas.length, 1).setNumberFormat('dd/mm/yy');
     sheet.getRange(3, colStart + 2, filas.length, 1).setFontWeight('bold');
+    
+    if (separatorRows && separatorRows.length > 0) {
+      separatorRows.forEach(rowOffset => {
+        const rowRange = sheet.getRange(3 + rowOffset, colStart, 1, 3);
+        rowRange.setBackground('#EAF0EE').setFontWeight('bold').setFontColor('#0F7A6E');
+        sheet.getRange(3 + rowOffset, colStart + 1).setNumberFormat('@');
+      });
+    }
   }
 
   sheet.setColumnWidth(colStart, 220);
@@ -232,14 +272,36 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
 
   clinicasOrdenadas.forEach(clinica => {
     const grupo = porClinica[clinica].sort((a, b) => a.fecha - b.fecha);
-    const filas = grupo.map(r => {
-      const tieneAsesor = r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—';
-      const valorCol3 = origen === 'Cuenta propia'
-        ? clinica
-        : (tieneAsesor ? 'Asesor: ' + r.asesor.toUpperCase() : 'Cuenta propia (clínica)');
-      return [r.nombre, r.fecha, valorCol3];
+    
+    // Agrupar por mes
+    const porMes = {};
+    grupo.forEach(r => {
+      const key = Utilities.formatDate(r.fecha, Session.getScriptTimeZone(), 'yyyy-MM');
+      if (!porMes[key]) porMes[key] = [];
+      porMes[key].push(r);
     });
-    escribirBloqueClinica_(sheet, colStart, clinica, grupo.length, filas, header3);
+
+    let filasFinales = [];
+    let separatorRows = [];
+
+    Object.keys(porMes).sort().forEach(mesKey => {
+      const rowsMes = porMes[mesKey];
+      const [anio, mesNum] = mesKey.split('-');
+      const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1].toUpperCase() + ' ' + anio;
+      
+      separatorRows.push(filasFinales.length);
+      filasFinales.push([`--- ${nombreMes} ---`, '', `${rowsMes.length} pac.`]);
+      
+      rowsMes.forEach(r => {
+        const tieneAsesor = r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—';
+        const valorCol3 = origen === 'Cuenta propia'
+          ? clinica
+          : (tieneAsesor ? 'Asesor: ' + r.asesor.toUpperCase() : 'Cuenta propia (clínica)');
+        filasFinales.push([r.nombre, r.fecha, valorCol3]);
+      });
+    });
+
+    escribirBloqueClinica_(sheet, colStart, clinica, grupo.length, filasFinales, header3, separatorRows);
     colStart += BLOCK_COLS + GAP;
   });
 
