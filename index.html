@@ -697,12 +697,12 @@ document.getElementById('urlSaveBtn').onclick = async () => {
 };
 
 // ---------- clinic strip ----------
-function renderClinicStrip(){
+function renderClinicStrip(data){
   const strip = document.getElementById('clinicStrip');
   strip.innerHTML = '';
-  const max = Math.max(1, ...CLINICAS.map(c => registros.filter(r => r.clinica === c).length));
+  const max = Math.max(1, ...CLINICAS.map(c => data.filter(r => r.clinica === c).length));
   CLINICAS.forEach(c => {
-    const count = registros.filter(r => r.clinica === c).length;
+    const count = data.filter(r => r.clinica === c).length;
     const [ciudad, sede] = c.includes(' - ') ? c.split(' - ') : [c, ''];
     const card = document.createElement('div');
     card.className = 'clinic-card' + (clinicFilterActive === c ? ' active' : '');
@@ -785,6 +785,17 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   selPaquete = null; selOrigen = [];
 
+  // Al agregar, saltar automáticamente al mes de ese registro
+  const newYm = nuevoRegistro.fecha.substring(0, 7);
+  const select = document.getElementById('pdfMonthSelect');
+  // Hacemos el option si no existe para que el select.value funcione antes del renderAll
+  if(!Array.from(select.options).some(o => o.value === newYm)) {
+    const opt = document.createElement('option');
+    opt.value = newYm;
+    select.appendChild(opt);
+  }
+  select.value = newYm;
+
   renderAll();
 });
 
@@ -809,11 +820,11 @@ async function eliminar(id){
 }
 
 // ---------- stats ----------
-function renderStats(){
-  const total = registros.length;
-  const individual = registros.filter(r => r.paquete === 'Individual').length;
-  const dualFam = registros.filter(r => r.paquete === 'Dual' || r.paquete === 'Familiar').length;
-  const convenio = registros.filter(r => r.origen.includes('Convenio')).length;
+function renderStats(data){
+  const total = data.length;
+  const individual = data.filter(r => r.paquete === 'Individual').length;
+  const dualFam = data.filter(r => r.paquete === 'Dual' || r.paquete === 'Familiar').length;
+  const convenio = data.filter(r => r.origen.includes('Convenio')).length;
   const pct = (n) => total ? Math.round(n/total*100) + '% del total' : '0% del total';
 
   document.getElementById('statTotal').textContent = total;
@@ -826,9 +837,9 @@ function renderStats(){
 }
 
 // ---------- charts ----------
-function renderCharts(){
+function renderCharts(data){
   const ctx1 = document.getElementById('chartClinicas').getContext('2d');
-  const dataClinicas = CLINICAS.map(c => registros.filter(r => r.clinica === c).length);
+  const dataClinicas = CLINICAS.map(c => data.filter(r => r.clinica === c).length);
   if(chartClinicas) chartClinicas.destroy();
   chartClinicas = new Chart(ctx1, {
     type: 'bar',
@@ -847,7 +858,7 @@ function renderCharts(){
   });
 
   const ctx2 = document.getElementById('chartPaquetes').getContext('2d');
-  const paqueteData = ['Individual','Dual','Familiar'].map(p => registros.filter(r => r.paquete === p).length);
+  const paqueteData = ['Individual','Dual','Familiar'].map(p => data.filter(r => r.paquete === p).length);
   if(chartPaquetes) chartPaquetes.destroy();
   chartPaquetes = new Chart(ctx2, {
     type: 'doughnut',
@@ -871,13 +882,13 @@ function badgeClass(val, type){
   return 'neutro';
 }
 
-function renderTable(){
+function renderTable(data){
   const search = document.getElementById('fSearch').value.toLowerCase();
   const fClinica = document.getElementById('fClinica').value;
   const fPaquete = document.getElementById('fPaquete').value;
   const fOrigen = document.getElementById('fOrigen').value;
 
-  const filtered = registros.filter(r => {
+  const filtered = data.filter(r => {
     if(fClinica && r.clinica !== fClinica) return false;
     if(fPaquete && r.paquete !== fPaquete) return false;
     if(fOrigen && !r.origen.includes(fOrigen)) return false;
@@ -919,11 +930,19 @@ function renderTable(){
 });
 
 function renderAll(){
-  renderClinicStrip();
-  renderStats();
-  renderCharts();
-  renderTable();
-  actualizarMesesPdf();
+  actualizarMesesPdf(); // Ensure dropdown is populated first
+  
+  const selectedMonth = document.getElementById('pdfMonthSelect').value;
+  let dataDelMes = registros;
+  
+  if(selectedMonth) {
+    dataDelMes = registros.filter(r => r.fecha && r.fecha.startsWith(selectedMonth));
+  }
+
+  renderClinicStrip(dataDelMes);
+  renderStats(dataDelMes);
+  renderCharts(dataDelMes);
+  renderTable(dataDelMes);
   syncHeights();
 }
 
@@ -950,6 +969,8 @@ const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Juli
 
 function actualizarMesesPdf() {
   const select = document.getElementById('pdfMonthSelect');
+  const currentSel = select.value;
+  
   if(!registros.length) {
     select.innerHTML = '<option value="">Sin datos</option>';
     return;
@@ -960,9 +981,9 @@ function actualizarMesesPdf() {
   });
   
   const sortedMonths = Array.from(months).sort().reverse();
-  const currentSel = select.value;
   
   select.innerHTML = '';
+  // Option to see "Todos los meses" (optional, but requested behavior is default to latest month)
   sortedMonths.forEach(ym => {
     const [y, m] = ym.split('-');
     const opt = document.createElement('option');
@@ -971,10 +992,26 @@ function actualizarMesesPdf() {
     select.appendChild(opt);
   });
 
+  // Preserve selection if it still exists, otherwise default to the latest month
   if(currentSel && sortedMonths.includes(currentSel)) {
     select.value = currentSel;
+  } else {
+    select.value = sortedMonths[0]; 
   }
 }
+
+document.getElementById('pdfMonthSelect').addEventListener('change', () => {
+  // Cuando el usuario cambie el mes, se re-renderiza todo pero SIN repoblar el dropdown
+  const selectedMonth = document.getElementById('pdfMonthSelect').value;
+  let dataDelMes = registros;
+  if(selectedMonth) {
+    dataDelMes = registros.filter(r => r.fecha && r.fecha.startsWith(selectedMonth));
+  }
+  renderClinicStrip(dataDelMes);
+  renderStats(dataDelMes);
+  renderCharts(dataDelMes);
+  renderTable(dataDelMes);
+});
 
 // --- HELPER PARA CHART A BASE64 ---
 const drawLabelsPlugin = {
