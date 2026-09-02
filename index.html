@@ -1349,22 +1349,22 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
 
 
     // --- DIBUJAR PÁGINA 1 ---
-    let yPos = 110;
-    doc.addImage(chart3_b64, 'PNG', 14, yPos, 80, 80);
+    let yPos = 100;
+    doc.addImage(chart3_b64, 'PNG', 14, yPos, 75, 75);
     let pctAses = total > 0 ? Math.round((ases/total)*100) : 0;
     let pctProp = total > 0 ? Math.round((cp/total)*100) : 0;
-    addInsight(doc, `El ${pctAses}% llegó por asesores; el ${pctProp}% fue cuenta propia de la clínica.`, 14, yPos + 85, 80);
+    addInsight(doc, `El ${pctAses}% llegó por asesores; el ${pctProp}% fue cuenta propia de la clínica.`, 14, yPos + 80, 80);
 
-    doc.addImage(chart2_b64, 'PNG', 105, yPos, 80, 80);
+    doc.addImage(chart2_b64, 'PNG', 105, yPos, 75, 75);
     if(clinicasSorted.length > 0 && countsClinica[clinicasSorted[0]] > 0) {
-      addInsight(doc, `${clinicasSorted[0]} tuvo más pacientes (${countsClinica[clinicasSorted[0]]}); ${clinicasSorted[clinicasSorted.length-1]} tuvo menos (${countsClinica[clinicasSorted[clinicasSorted.length-1]]}).`, 105, yPos + 85, 80);
+      addInsight(doc, `${clinicasSorted[0]} tuvo más pacientes (${countsClinica[clinicasSorted[0]]}); ${clinicasSorted[clinicasSorted.length-1]} tuvo menos (${countsClinica[clinicasSorted[clinicasSorted.length-1]]}).`, 105, yPos + 80, 80);
     }
     
-    yPos += 105;
+    yPos += 95;
     
-    doc.addImage(chart6_b64, 'PNG', 14, yPos, 180, 75);
+    doc.addImage(chart6_b64, 'PNG', 14, yPos, 180, 70);
     if(peakDay !== 'N/A') {
-      addInsight(doc, `El día de mayor actividad fue el ${peakDay} con ${timeline[peakDay]} pacientes.`, 14, yPos + 80, 180);
+      addInsight(doc, `El día de mayor actividad fue el ${peakDay} con ${timeline[peakDay]} pacientes.`, 14, yPos + 75, 180);
     }
     
     // --- PÁGINA 2 ---
@@ -1397,10 +1397,10 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     
     yPos += 110;
     
-    doc.addImage(chart8_b64, 'PNG', 14, yPos, 180, 75);
+    doc.addImage(chart8_b64, 'PNG', 14, yPos, 180, 70);
     const peakDayCp = cpDatesSorted.length ? cpDatesSorted.reduce((a,b)=>tlCp[a] > tlCp[b] ? a : b) : 'N/A';
     if(peakDayCp !== 'N/A') {
-      addInsight(doc, `El día de mayor actividad de cuenta propia fue el ${peakDayCp} con ${tlCp[peakDayCp]} pacientes. En total el mes sumó ${cp} orgánicos.`, 14, yPos + 80, 180);
+      addInsight(doc, `El día de mayor actividad de cuenta propia fue el ${peakDayCp} con ${tlCp[peakDayCp]} pacientes. En total el mes sumó ${cp} orgánicos.`, 14, yPos + 75, 180);
     }
 
     // --- PÁGINA 4 (TARJETAS INDIVIDUALES) ---
