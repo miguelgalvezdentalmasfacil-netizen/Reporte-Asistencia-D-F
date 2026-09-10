@@ -6,6 +6,11 @@
 const SHEET_NAME = 'Registros';
 const HEADERS = ['ID', 'Fecha asistencia', 'Paciente', 'Clínica', 'Asesor', 'Paquete', 'Origen', 'Registrado el'];
 
+const SHEET_CITAS = 'Citas';
+const CITAS_HEADERS = ['ID', 'Fecha', 'Hora', 'Sucursal', 'Doctor', 'Asesor', 'Paciente', 'Genero', 'Edad',
+  'TipoPaciente', 'TipoCita', 'Tratamiento', 'Cotizacion', 'Motivo', 'Decision', 'Alergias', 'Notas',
+  'Fuente', 'Lead', 'Estado', 'RegistradoEl'];
+
 const VIEW_ASESOR_SHEET = 'Por Asesor';
 const VIEW_CUENTA_PROPIA_SHEET = 'Cuenta Propia por Clínica';
 const VIEW_CONVENIO_SHEET = 'Convenio por Clínica';
@@ -78,6 +83,8 @@ function setupSheet() {
   generarResumenMensual();
 
   instalarTriggerActualizacion();
+
+  getOrCreateCitasSheet_();
 }
 
 function instalarTriggerActualizacion() {
@@ -111,24 +118,27 @@ function getRegistros_() {
   const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
   return values
     .filter(row => row[2]) 
-    .map(row => ({
-      id: row[0],
-      nombre: row[2],
-      fecha: row[1] instanceof Date ? row[1] : new Date(row[1]),
-      clinica: row[3],
-      asesor: row[4] || 'Sin asignar',
-      paquete: row[5],
-      origen: row[6]
-    }));
+    .map(row => {
+      const f = row[1] instanceof Date ? row[1] : new Date(row[1]);
+      let mk = '';
+      try { mk = Utilities.formatDate(f, Session.getScriptTimeZone(), 'yyyy-MM'); } catch(e){}
+      return {
+        id: row[0],
+        nombre: row[2],
+        fecha: f,
+        mesKey: mk,
+        clinica: row[3],
+        clinicaCorta: CLINICA_CORTA[row[3]] || row[3],
+        asesor: row[4] || 'Sin asignar',
+        paquete: row[5],
+        origen: row[6]
+      };
+    });
 }
 
-function escribirBloque_(sheet, colStart, tituloCount, filas, separatorRows) {
-  sheet.getRange(1, colStart + 3)
-    .setValue(tituloCount)
-    .setBackground('#34A853')
-    .setFontColor('#FFFFFF')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
+function escribirBloque_(sheet, colStart, asesorNombre, filas, separatorRows) {
+  sheet.getRange(1, colStart, 1, 2).merge().setValue(asesorNombre)
+    .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('left').setFontColor('#5E7975');
 
   const headers = ['NOMBRE DEL PACIENTE', 'FECHA', 'SUCURSAL', 'ASESOR'];
   sheet.getRange(2, colStart, 1, 4)
@@ -164,61 +174,72 @@ function generarVistaPorAsesor() {
   sheet.clear();
 
   const registros = getRegistros_().filter(r => r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—');
-  const porAsesor = {};
+  
+  // Agrupar asesores y meses
+  const asesoresSet = new Set();
+  const mesesSet = new Set();
   registros.forEach(r => {
-    if (!porAsesor[r.asesor]) porAsesor[r.asesor] = [];
-    porAsesor[r.asesor].push(r);
+    asesoresSet.add(r.asesor);
+    if(r.mesKey) mesesSet.add(r.mesKey);
+  });
+  
+  const asesores = Array.from(asesoresSet).sort();
+  const mesesGlobales = Array.from(mesesSet).sort();
+  
+  // Calcular el maximo de filas que ocupará cada mes
+  const maxPorMes = {};
+  mesesGlobales.forEach(m => {
+    let max = 0;
+    asesores.forEach(a => {
+      const count = registros.filter(r => r.asesor === a && r.mesKey === m).length;
+      if (count > max) max = count;
+    });
+    maxPorMes[m] = max;
   });
 
-  const asesores = Object.keys(porAsesor).sort();
   const BLOCK_COLS = 4;
   const GAP = 1;
   let colStart = 1;
 
   asesores.forEach(asesor => {
-    const grupo = porAsesor[asesor].sort((a, b) => a.fecha - b.fecha);
-    
-    // Agrupar por mes
-    const porMes = {};
-    grupo.forEach(r => {
-      const key = Utilities.formatDate(r.fecha, Session.getScriptTimeZone(), 'yyyy-MM');
-      if (!porMes[key]) porMes[key] = [];
-      porMes[key].push(r);
-    });
-
     let filasFinales = [];
     let separatorRows = [];
 
-    Object.keys(porMes).sort().forEach(mesKey => {
-      const rowsMes = porMes[mesKey];
+    mesesGlobales.forEach((mesKey, index) => {
+      const rowsMes = registros.filter(r => r.asesor === asesor && r.mesKey === mesKey).sort((a,b) => a.fecha - b.fecha);
+      
       const [anio, mesNum] = mesKey.split('-');
       const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1].toUpperCase() + ' ' + anio;
       
+      // Espacio en blanco antes de un nuevo mes (para que no pegue)
+      if (index > 0) {
+        filasFinales.push(['', '', '', '']);
+      }
+
       separatorRows.push(filasFinales.length);
       filasFinales.push([`--- ${nombreMes} ---`, '', '', `${rowsMes.length} pac.`]);
       
       rowsMes.forEach(r => {
-        filasFinales.push([r.nombre, r.fecha, CLINICA_CORTA[r.clinica] || r.clinica, asesor.toUpperCase()]);
+        filasFinales.push([r.nombre, r.fecha, r.clinicaCorta, asesor.toUpperCase()]);
       });
+      
+      // Rellenar con vacíos para alinear horizontalmente con los demás
+      const padding = maxPorMes[mesKey] - rowsMes.length;
+      for (let i = 0; i < padding; i++) {
+        filasFinales.push(['', '', '', '']);
+      }
     });
 
-    escribirBloque_(sheet, colStart, grupo.length, filasFinales, separatorRows);
+    escribirBloque_(sheet, colStart, asesor.toUpperCase(), filasFinales, separatorRows);
     colStart += BLOCK_COLS + GAP;
   });
 
   sheet.setFrozenRows(2);
 }
 
-function escribirBloqueClinica_(sheet, colStart, clinicaNombre, tituloCount, filas, header3, separatorRows) {
+function escribirBloqueClinica_(sheet, colStart, clinicaNombre, filas, header3, separatorRows) {
   sheet.getRange(1, colStart, 1, 2).merge().setValue(clinicaNombre)
     .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left').setFontColor('#5E7975');
-
-  sheet.getRange(1, colStart + 2)
-    .setValue(tituloCount)
-    .setBackground('#34A853')
-    .setFontColor('#FFFFFF')
-    .setFontWeight('bold')
-    .setHorizontalAlignment('center');
 
   const headers = ['NOMBRE DEL PACIENTE', 'FECHA', header3];
   sheet.getRange(2, colStart, 1, 3)
@@ -257,38 +278,47 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
     const valores = String(r.origen).split(',').map(s => s.trim());
     return valores.includes(origen);
   });
-  const porClinica = {};
+  
+  const clinicasSet = new Set();
+  const mesesSet = new Set();
   registros.forEach(r => {
-    const clave = CLINICA_CORTA[r.clinica] || r.clinica;
-    if (!porClinica[clave]) porClinica[clave] = [];
-    porClinica[clave].push(r);
+    clinicasSet.add(r.clinicaCorta);
+    if(r.mesKey) mesesSet.add(r.mesKey);
   });
 
-  const clinicasOrdenadas = Object.keys(porClinica).sort();
+  const clinicasOrdenadas = Array.from(clinicasSet).sort();
+  const mesesGlobales = Array.from(mesesSet).sort();
+
+  const maxPorMes = {};
+  mesesGlobales.forEach(m => {
+    let max = 0;
+    clinicasOrdenadas.forEach(c => {
+      const count = registros.filter(r => r.clinicaCorta === c && r.mesKey === m).length;
+      if (count > max) max = count;
+    });
+    maxPorMes[m] = max;
+  });
+
   const BLOCK_COLS = 3;
   const GAP = 1;
   let colStart = 1;
   const header3 = origen === 'Cuenta propia' ? 'CLÍNICA' : 'ORIGEN';
 
   clinicasOrdenadas.forEach(clinica => {
-    const grupo = porClinica[clinica].sort((a, b) => a.fecha - b.fecha);
-    
-    // Agrupar por mes
-    const porMes = {};
-    grupo.forEach(r => {
-      const key = Utilities.formatDate(r.fecha, Session.getScriptTimeZone(), 'yyyy-MM');
-      if (!porMes[key]) porMes[key] = [];
-      porMes[key].push(r);
-    });
-
     let filasFinales = [];
     let separatorRows = [];
 
-    Object.keys(porMes).sort().forEach(mesKey => {
-      const rowsMes = porMes[mesKey];
+    mesesGlobales.forEach((mesKey, index) => {
+      const rowsMes = registros.filter(r => r.clinicaCorta === clinica && r.mesKey === mesKey).sort((a,b) => a.fecha - b.fecha);
+      
       const [anio, mesNum] = mesKey.split('-');
       const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1].toUpperCase() + ' ' + anio;
       
+      // Espacio en blanco antes de un nuevo mes
+      if (index > 0) {
+        filasFinales.push(['', '', '']);
+      }
+
       separatorRows.push(filasFinales.length);
       filasFinales.push([`--- ${nombreMes} ---`, '', `${rowsMes.length} pac.`]);
       
@@ -299,9 +329,15 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
           : (tieneAsesor ? 'Asesor: ' + r.asesor.toUpperCase() : 'Cuenta propia (clínica)');
         filasFinales.push([r.nombre, r.fecha, valorCol3]);
       });
+
+      // Rellenar con vacíos
+      const padding = maxPorMes[mesKey] - rowsMes.length;
+      for (let i = 0; i < padding; i++) {
+        filasFinales.push(['', '', '']);
+      }
     });
 
-    escribirBloqueClinica_(sheet, colStart, clinica, grupo.length, filasFinales, header3, separatorRows);
+    escribirBloqueClinica_(sheet, colStart, clinica, filasFinales, header3, separatorRows);
     colStart += BLOCK_COLS + GAP;
   });
 
@@ -439,6 +475,12 @@ function doPost(e) {
     if (data.accion === 'eliminar') {
       return eliminarRegistro_(data.id);
     }
+    if (data.accion === 'crearCita') {
+      return crearCita_(data);
+    }
+    if (data.accion === 'marcarAsistencia') {
+      return marcarAsistencia_(data);
+    }
     return crearRegistro_(data);
   } catch (err) {
     return jsonOutput_({ status: 'error', message: err.message });
@@ -446,11 +488,16 @@ function doPost(e) {
 }
 
 function crearRegistro_(data) {
+  const id = insertarRegistro_(data);
+  return jsonOutput_({ status: 'ok', id: id });
+}
+
+function insertarRegistro_(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   const id = data.id || Date.now();
 
   // 1. PRIMERO dispara la notificación a tu celular (inmediato)
-  enviarNotificacionOneSignal(data.nombre || 'Paciente', data.clinica || 'Clínica no especificada');
+  enviarNotificacionOneSignal(data.nombre || 'Paciente', data.clinica || 'Clínica no especificada', id);
 
   // 2. LUEGO guarda el registro en Google Sheets
   sheet.appendRow([
@@ -467,7 +514,7 @@ function crearRegistro_(data) {
   // 3. HASTA EL FINAL actualiza las tablas (el paso más pesado y lento)
   actualizarVistas();
 
-  return jsonOutput_({ status: 'ok', id: id });
+  return id;
 }
 
 function eliminarRegistro_(id) {
@@ -493,6 +540,10 @@ function jsonOutput_(obj) {
 }
 
 function doGet(e) {
+  if (e && e.parameter && e.parameter.tipo === 'citas') {
+    return obtenerCitas_(e);
+  }
+
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   const lastRow = sheet.getLastRow();
 
@@ -514,19 +565,124 @@ function doGet(e) {
   return jsonOutput_(records);
 }
 
+function getOrCreateCitasSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_CITAS);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_CITAS);
+    sheet.getRange(1, 1, 1, CITAS_HEADERS.length).setValues([CITAS_HEADERS])
+      .setFontWeight('bold').setFontColor('#FFFFFF').setBackground('#0F7A6E').setFontSize(10);
+    sheet.setFrozenRows(1);
+    sheet.hideColumns(1);
+  }
+  return sheet;
+}
+
+function crearCita_(data) {
+  const sheet = getOrCreateCitasSheet_();
+  const id = data.id || Date.now();
+
+  sheet.appendRow([
+    id,
+    data.fecha || '',
+    data.hora || '',
+    data.sucursal || '',
+    data.doctor || '',
+    data.asesor || '',
+    data.nombre || '',
+    data.genero || '',
+    data.edad || '',
+    data.tipo_paciente || '',
+    data.tipo_cita || '',
+    data.tratamiento || '',
+    data.cotizacion || '',
+    data.motivo || '',
+    data.decision || '',
+    data.alergias || '',
+    data.notas || '',
+    data.fuente || '',
+    data.lead || '',
+    'Pendiente',
+    new Date()
+  ]);
+
+  return jsonOutput_({ status: 'ok', id: id });
+}
+
+function marcarAsistencia_(data) {
+  const sheet = getOrCreateCitasSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonOutput_({ status: 'error', message: 'No hay citas registradas' });
+
+  const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let rowIndex = -1;
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(data.id)) { rowIndex = i + 2; break; }
+  }
+  if (rowIndex === -1) return jsonOutput_({ status: 'error', message: 'No se encontró esa cita' });
+
+  const estado = data.estado === 'Asistió' ? 'Asistió' : 'No asistió';
+  const colEstado = CITAS_HEADERS.indexOf('Estado') + 1;
+  sheet.getRange(rowIndex, colEstado).setValue(estado);
+
+  if (estado === 'Asistió') {
+    const rowVals = sheet.getRange(rowIndex, 1, 1, CITAS_HEADERS.length).getValues()[0];
+    const cita = {};
+    CITAS_HEADERS.forEach((h, i) => { cita[h] = rowVals[i]; });
+
+    const asesor = cita['Asesor'];
+    const origen = (asesor && asesor !== '') ? 'Por asesor' : 'Cuenta propia';
+
+    insertarRegistro_({
+      nombre: cita['Paciente'],
+      clinica: cita['Sucursal'],
+      asesor: asesor,
+      paquete: data.paquete || 'Individual',
+      origen: origen,
+      fecha: cita['Fecha']
+    });
+  }
+
+  return jsonOutput_({ status: 'ok' });
+}
+
+function obtenerCitas_(e) {
+  const sheet = getOrCreateCitasSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonOutput_([]);
+
+  const values = sheet.getRange(2, 1, lastRow - 1, CITAS_HEADERS.length).getValues();
+  let citas = values.map(row => {
+    const obj = {};
+    CITAS_HEADERS.forEach((h, i) => {
+      let v = row[i];
+      if (v instanceof Date) v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      obj[h] = v;
+    });
+    return obj;
+  }).filter(c => c['Paciente']);
+
+  const asesorFiltro = e && e.parameter && e.parameter.asesor;
+  if (asesorFiltro) citas = citas.filter(c => c['Asesor'] === asesorFiltro);
+
+  return jsonOutput_(citas);
+}
+
 // =====================================================================
 // INTEGRACIÓN ONESIGNAL - PUSH NOTIFICATIONS
 // =====================================================================
 const ONESIGNAL_APP_ID = "5d3771b1-d067-48fd-9bdd-581bce3dbd43";
 const ONESIGNAL_REST_API_KEY = "TU_REST_API_KEY_AQUI";
 
-function enviarNotificacionOneSignal(nombre, clinica) {
+function enviarNotificacionOneSignal(nombre, clinica, id) {
   if (!ONESIGNAL_REST_API_KEY || ONESIGNAL_REST_API_KEY === "TU_REST_API_KEY_AQUI") return;
 
    const payload = {
     app_id: ONESIGNAL_APP_ID,
     target_channel: "push",
     included_segments: ["Total Subscriptions"],
+    data: { "registro_id": id },
+    url: "https://miguelgalvezdentalmasfacil-netizen.github.io/Reporte-Asistencia-D-F/",
     contents: {
       en: "Nuevo paciente registrado: " + nombre + " en " + clinica,
       es: "Nuevo paciente registrado: " + nombre + " en " + clinica
