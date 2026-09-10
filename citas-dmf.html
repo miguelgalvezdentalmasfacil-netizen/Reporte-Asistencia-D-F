@@ -412,12 +412,14 @@
         const tipo  = f.tipo_paciente === "Nuevo" ? "Paciente nuevo" : "Paciente recurrente";
         const costo = f.cotizacion ? `$${Number(f.cotizacion).toLocaleString("es-MX")}` : null;
         const l2    = [costo, f.estado].filter(Boolean).join(" · ");
+        const sucursalFmt = f.sucursal ? f.sucursal.replace(" - ", " ") : "—";
+
         const rows  = [
           `*DENTAL MÁS FÁCIL — CITA AGENDADA*`,
           SEP,
-          `*MÉDICO:* Dr(a). ${f.doctor || "—"}`,
-          `*SUCURSAL:* ${f.sucursal || "—"}`,
-          `*FECHA:* ${fecha} a las ${hora} (~${f.duracion} min)`,
+          `*DR(A). ${f.doctor || "—"}*`,
+          `*${sucursalFmt}· ${fecha}*`,
+          `${hora} · ~${f.duracion} min`,
           "",
           "*PACIENTE*",
           f.nombre || "—",
@@ -430,12 +432,12 @@
           "*PARA EL DOCTOR*",
           f.motivo   ? `Motivo: ${f.motivo}` : null,
           f.decision ? `Decisión: ${f.decision}` : null,
-          `Alergias: ${f.alergias || "Sin reporte"}`,
+          `Alergias: ${f.alergias || "N/A"}`,
           f.notas ? "" : null,
           f.notas ? "*NOTAS*" : null,
           f.notas ? f.notas : null,
           "",
-          `*ASESOR:* ${f.asesor || "—"} · Lead${LEAD[f.lead].emoji}`,
+          `*ASESOR: ${f.asesor || "—"} · Paciente${LEAD[f.lead].emoji}*`,
         ];
         return rows.filter(r => r !== null).join("\n");
       };
