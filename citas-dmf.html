@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dental Más Fácil — Agendación de Citas</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #EFF4F7; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    select, input, textarea { -webkit-appearance: none; appearance: none; }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .tab-btn { flex:1; padding:12px; text-align:center; cursor:pointer; font-weight:600; font-size:14px; border-bottom:3px solid transparent; color:#5A7889; }
+    .tab-btn.active { border-bottom-color:#0C5F6E; color:#0C5F6E; }
+    .badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+    .badge.pendiente { background:#FFF3CD; color:#856404; }
+    .badge.asistio { background:#D4EDDA; color:#155724; }
+    .badge.no-asistio { background:#F8D7DA; color:#721C24; }
+    /* Loading spinner */
+    .spinner { border: 3px solid rgba(0,0,0,0.1); width: 24px; height: 24px; border-radius: 50%; border-left-color: #0C5F6E; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ── constantes ───────────────────────────────────────────────────────────────
+    const SUCURSALES = ["Tijuana", "Mexicali - Obregón", "Mexicali - Villa Verde", "Ensenada"];
+    const DURACIONES = ["15","20","30","45","60","90","120"];
+    const TIPOS_CITA = ["Valoración","Inicio de tratamiento","Seguimiento","Urgencia"];
+    const MOTIVOS    = ["Estético","Funcional","Dolor","Estético y funcional","Preventivo"];
+    const DECISIONES = ["Explorando opciones","Lista para iniciar","Urgente, ya decidió"];
+    const FUENTES    = ["Meta Ads","Referido","Doctoralia","Walk-in","WhatsApp directo"];
+    const ESTADOS    = ["En valoración","Ya decidió","Urgente"];
+    const PAQUETES   = ["Individual", "Dual", "Familiar"];
+    const ASESORES   = ["Miguel", "Carlos", "Zoe", "Edgar"];
+
+    const HORAS = (() => {
+      const opts = [];
+      for (let h = 7; h <= 21; h++) {
+        for (const m of [0,15,30,45]) {
+          const ampm = h >= 12 ? "pm" : "am";
+          const h12  = h % 12 || 12;
+          const mStr = String(m).padStart(2,"0");
+          opts.push({ value: `${String(h).padStart(2,"0")}:${mStr}`, label: `${h12}:${mStr} ${ampm}` });
+        }
+      }
+      return opts;
+    })();
+
+    const DIAS_L  = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+    const MESES_L = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+    const fmtDate = s => {
+      if (!s) return "—";
+      const [y,m,d] = s.split("-").map(Number);
+      const dt = new Date(y, m-1, d);
+      return `${DIAS_L[dt.getDay()]} ${String(d).padStart(2,"0")} de ${MESES_L[m-1]}`;
+    };
+    const fmtTime = s => {
+      if (!s) return "—";
+      const [h,min] = s.split(":").map(Number);
+      return `${h%12||12}:${String(min).padStart(2,"0")} ${h>=12?"pm":"am"}`;
+    };
+
+    const LEAD = {
+      Verde:    { bg:"#E4F5EC", text:"#1A5C38", border:"#4CAF7A", emoji:"🟢" },
+      Amarillo: { bg:"#FDF4E4", text:"#7A4A00", border:"#E8A825", emoji:"🟡" },
+      Rojo:     { bg:"#FDECEA", text:"#7A1F1F", border:"#D95555", emoji:"🔴" },
+    };
+
+    const EMPTY = {
+      doctor:"", sucursal:"", fecha:"", hora:"", duracion:"30",
+      nombre:"", genero:"Masculino", edad:"", tipo_paciente:"Nuevo",
+      tipo_cita:"Valoración", tratamiento:"", cotizacion:"", estado:"En valoración",
+      motivo:"", decision:"", alergias:"", notas:"",
+      fuente:"Meta Ads", lead:"Verde", asesor:"",
+    };
+
+    // ── tokens de diseño ─────────────────────────────────────────────────────────
+    const C = {
+      bg:"#EFF4F7", surface:"#FFFFFF", border:"#C9D8E2",
+      accent:"#0C5F6E", accentLight:"#DFF0F3",
+      text:"#1A2B35", muted:"#5A7889",
+    };
+    const F = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+
+    const inp = {
+      width:"100%", boxSizing:"border-box",
+      background:"#F6FAFB", border:`1px solid ${C.border}`,
+      borderRadius:6, padding:"8px 10px",
+      fontSize:13, color:C.text, fontFamily:F, outline:"none",
+    };
+    const lbl = { display:"block", fontSize:11, fontWeight:600, color:C.muted, marginBottom:5 };
+
+    // ── sub-componentes ──────────────────────────────────────────────────────────
+    function Section({ title, children }) {
+      return (
+        <div style={{ borderLeft:`3px solid ${C.accent}`, paddingLeft:13, marginBottom:18 }}>
+          <div style={{ fontSize:10, fontWeight:700, letterSpacing:"0.08em", color:C.accent, marginBottom:12 }}>{title}</div>
+          {children}
+        </div>
+      );
+    }
+    function Field({ label, children }) {
+      return <div><label style={lbl}>{label}</label>{children}</div>;
+    }
+    function Grid({ cols="1fr 1fr", gap=10, mb=10, children }) {
+      return <div style={{ display:"grid", gridTemplateColumns:cols, gap, marginBottom:mb }}>{children}</div>;
+    }
+    function Toggle({ options, value, onChange }) {
+      return (
+        <div style={{ display:"flex", gap:6 }}>
+          {options.map(o => {
+            const active = value === o.val;
+            return (
+              <button key={o.val} onClick={() => onChange(o.val)} style={{
+                flex:1, padding:"8px 4px", fontSize:12, fontFamily:F,
+                borderRadius:6, border:`1.5px solid ${active ? C.accent : C.border}`,
+                background:active ? C.accentLight : "#F6FAFB",
+                color:active ? C.accent : C.muted,
+                fontWeight:active ? 600 : 400, cursor:"pointer",
+              }}>{o.label}</button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── componente principal ─────────────────────────────────────────────────────
+    function CitaApp() {
+      const [f, setF]       = useState({ ...EMPTY });
+      const [cp1, setCp1]   = useState(false);
+      const [cp2, setCp2]   = useState(false);
+      
+      const [tab, setTab] = useState('agendar'); // agendar, miscitas
+      
+      const [scriptUrl, setScriptUrl] = useState(localStorage.getItem('dmf_script_url') || '');
+      const [showSettings, setShowSettings] = useState(false);
+      
+      const [myAsesor, setMyAsesor] = useState(localStorage.getItem('dmf_my_asesor') || '');
+      const [showAsesorModal, setShowAsesorModal] = useState(!localStorage.getItem('dmf_my_asesor'));
+      
+      const [citas, setCitas] = useState([]);
+      const [loadingCitas, setLoadingCitas] = useState(false);
+      
+      const [isSaving, setIsSaving] = useState(false);
+      const [saveMsg, setSaveMsg] = useState('');
+      
+      // Para el flujo de "Asistió" (elegir paquete)
+      const [confirmandoAsistencia, setConfirmandoAsistencia] = useState(null); // id de la cita
+
+      useEffect(() => {
+        if(myAsesor) {
+          setF(prev => ({ ...prev, asesor: myAsesor }));
+        }
+      }, [myAsesor]);
+
+      useEffect(() => {
+        if(tab === 'miscitas' && scriptUrl && myAsesor) {
+          cargarCitas();
+        }
+      }, [tab]);
+
+      const set   = k => e => setF(p => ({ ...p, [k]: e.target.value }));
+      const tog   = (k,v)  => setF(p => ({ ...p, [k]: v }));
+      const reset = ()     => setF({ ...EMPTY, asesor: myAsesor });
+
+      const saveSettings = (url) => {
+        setScriptUrl(url);
+        localStorage.setItem('dmf_script_url', url);
+        setShowSettings(false);
+      };
+      
+      const saveAsesor = (as) => {
+        setMyAsesor(as);
+        localStorage.setItem('dmf_my_asesor', as);
+        setShowAsesorModal(false);
+      };
+
+      const cargarCitas = async () => {
+        setLoadingCitas(true);
+        try {
+          const res = await fetch(`${scriptUrl}?tipo=citas&asesor=${encodeURIComponent(myAsesor)}`);
+          const data = await res.json();
+          setCitas(data.reverse()); // más recientes primero
+        } catch(e) {
+          console.error(e);
+          alert("Error al cargar citas. Verifica la URL de Apps Script.");
+        }
+        setLoadingCitas(false);
+      };
+
+      const guardarCita = async () => {
+        if(!scriptUrl) return alert("Falta configurar la URL de Apps Script en el engranaje.");
+        if(!f.nombre || !f.sucursal || !f.fecha) return alert("Falta nombre, sucursal o fecha.");
+        
+        setIsSaving(true);
+        setSaveMsg('');
+        try {
+          const payload = {
+            accion: 'crearCita',
+            ...f,
+            id: Date.now().toString()
+          };
+          const res = await fetch(scriptUrl, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          const result = await res.json();
+          if(result.status === 'ok') {
+            setSaveMsg('¡Cita guardada!');
+            setTimeout(() => setSaveMsg(''), 3000);
+          } else {
+            alert('Error: ' + result.message);
+          }
+        } catch(e) {
+          alert("Error de conexión al guardar.");
+        }
+        setIsSaving(false);
+      };
+
+      const marcarEstado = async (id, estado, paquete = null) => {
+        setLoadingCitas(true);
+        try {
+          const payload = { accion: 'marcarAsistencia', id, estado };
+          if(paquete) payload.paquete = paquete;
+          
+          const res = await fetch(scriptUrl, { method: 'POST', body: JSON.stringify(payload) });
+          const result = await res.json();
+          if(result.status === 'ok') {
+            await cargarCitas();
+          } else {
+            alert('Error: ' + result.message);
+          }
+        } catch(e) {
+          alert("Error de conexión.");
+        }
+        setConfirmandoAsistencia(null);
+        setLoadingCitas(false);
+      };
+
+      // Mensaje para el grupo de citas
+      const msgGrupo = () => {
+        const SEP  = "─".repeat(33);
+        const fecha = f.fecha ? fmtDate(f.fecha) : "—";
+        const hora  = f.hora  ? fmtTime(f.hora)  : "—";
+        const tipo  = f.tipo_paciente === "Nuevo" ? "Paciente nuevo" : "Paciente recurrente";
+        const costo = f.cotizacion ? `$${Number(f.cotizacion).toLocaleString("es-MX")}` : null;
+        const l2    = [costo, f.estado].filter(Boolean).join(" · ");
+        const rows  = [
+          `*DENTAL MÁS FÁCIL — CITA AGENDADA*`,
+          SEP,
+          `*DR(A). ${f.doctor || "—"}*`,
+          `*${f.sucursal || "—"} · ${fecha}*`,
+          `${hora} · ~${f.duracion} min`,
+          "",
+          "*PACIENTE*",
+          f.nombre || "—",
+          [f.genero, f.edad ? f.edad+" años" : null, tipo].filter(Boolean).join(" · "),
+          "",
+          "*CONSULTA*",
+          `${f.tipo_cita}${f.tratamiento ? " — "+f.tratamiento : ""}`,
+          l2 || null,
+          "",
+          "*PARA EL DOCTOR*",
+          f.motivo   ? `Motivo: ${f.motivo}` : null,
+          f.decision ? `Decisión: ${f.decision}` : null,
+          `Alergias: ${f.alergias || "Sin reporte"}`,
+          f.notas ? "" : null,
+          f.notas ? "*NOTAS*" : null,
+          f.notas ? f.notas : null,
+          "",
+          `*ASESOR: ${f.asesor || "—"} · Paciente${LEAD[f.lead].emoji}*`,
+        ];
+        return rows.filter(r => r !== null).join("\n");
+      };
+
+      // Mensaje de confirmación al paciente
+      const msgPaciente = () => {
+        const nombre  = f.nombre ? f.nombre.split(" ")[0] : "—";
+        const fecha   = f.fecha  ? fmtDate(f.fecha) : "—";
+        const hora    = f.hora   ? fmtTime(f.hora)  : "—";
+        const agd     = f.genero === "Femenino" ? "agendada" : "agendado";
+        const suc     = f.sucursal ? ` ${f.sucursal}` : "";
+        const rows    = [
+          `¡Hola *${nombre}*! 😊`,
+          "",
+          `Listo, quedaste *${agd}* en *Dental Más Fácil${suc}*.`,
+          "",
+          `📅 *${fecha}*`,
+          `🕐 *${hora}*`,
+          f.doctor ? `👨‍⚕️ Dr(a). ${f.doctor}` : null,
+          "",
+          "Cualquier duda nos avisas, con gusto te atendemos. ¡Te esperamos! 🦷",
+        ];
+        return rows.filter(r => r !== null).join("\n");
+      };
+
+      const copy = async (text, setDone) => {
+        try { await navigator.clipboard.writeText(text); }
+        catch {
+          const t = document.createElement("textarea");
+          t.value = text; document.body.appendChild(t);
+          t.select(); document.execCommand("copy"); document.body.removeChild(t);
+        }
+        setDone(true); setTimeout(() => setDone(false), 2500);
+      };
+
+      const filled = Object.keys(f).filter(k => f[k] !== "" && f[k] !== EMPTY[k]).length;
+      const pct    = Math.round((filled / Object.keys(f).length) * 100);
+      const horaFmt = f.hora ? fmtTime(f.hora) : null;
+
+      return (
+        <div style={{ background:C.bg, minHeight:"100vh", paddingBottom:40 }}>
+          
+          {/* Modal Asesor */}
+          {showAsesorModal && (
+            <div style={{ position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <div style={{ background:'#fff', padding:24, borderRadius:12, width:'90%', maxWidth:350, textAlign:'center' }}>
+                <h3 style={{ marginBottom:8, color:C.text }}>¿Quién eres?</h3>
+                <p style={{ fontSize:13, color:C.muted, marginBottom:20 }}>Selecciona tu nombre para ver tus citas.</p>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {ASESORES.map(a => (
+                    <button key={a} onClick={() => saveAsesor(a)} style={{ padding:12, background:C.accentLight, color:C.accent, border:'none', borderRadius:8, fontWeight:600, cursor:'pointer' }}>{a}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Header */}
+          <div style={{ background:C.accent, padding:"14px 20px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <div style={{ color:"#fff", fontSize:15, fontWeight:700 }}>🦷 Dental Más Fácil</div>
+              <div style={{ color:"#8DCFDA", fontSize:11, marginTop:2, cursor:'pointer' }} onClick={() => setShowAsesorModal(true)}>
+                Asesor activo: {myAsesor || 'Ninguno'} (cambiar)
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+              <div style={{ fontSize:11, color: scriptUrl ? '#5DE0B5' : '#FF9BAA', fontWeight:600 }}>
+                {scriptUrl ? '✓ Conectado' : '⚠ Sin conectar'}
+              </div>
+              <button onClick={() => setShowSettings(!showSettings)} style={{ background:'transparent', border:'none', fontSize:20, cursor:'pointer' }}>⚙️</button>
+            </div>
+          </div>
+          
+          {/* Settings Bar */}
+          {showSettings && (
+            <div style={{ background:'#fff', padding:"12px 20px", borderBottom:`1px solid ${C.border}` }}>
+              <label style={lbl}>URL del Backend (Apps Script)</label>
+              <div style={{ display:'flex', gap:8 }}>
+                <input style={{...inp, flex:1}} value={scriptUrl} onChange={e => setScriptUrl(e.target.value)} placeholder="https://script.google.com/macros/s/.../exec" />
+                <button onClick={() => saveSettings(scriptUrl)} style={{ padding:"8px 16px", background:C.accent, color:'#fff', border:'none', borderRadius:6, cursor:'pointer' }}>Guardar</button>
+              </div>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div style={{ display:'flex', background:'#fff', borderBottom:`1px solid ${C.border}` }}>
+            <div className={`tab-btn ${tab==='agendar' ? 'active':''}`} onClick={() => setTab('agendar')}>Agendar Cita</div>
+            <div className={`tab-btn ${tab==='miscitas' ? 'active':''}`} onClick={() => setTab('miscitas')}>Mis Citas</div>
+          </div>
+
+          {/* Tab: Agendar */}
+          {tab === 'agendar' && (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:14, padding:"14px 14px 0", alignItems:"flex-start" }}>
+              {/* ── FORMULARIO ── */}
+              <div style={{ flex:"1 1 300px", minWidth:280 }}>
+                <div style={{ background:C.surface, borderRadius:10, padding:"18px 16px", border:`1px solid ${C.border}` }}>
+
+                  <Section title="Información de la cita">
+                    <Grid cols="1fr 1fr">
+                      <Field label="Doctor / Doctora">
+                        <input style={inp} value={f.doctor} onChange={set("doctor")} placeholder="Nombre del Dr(a)." />
+                      </Field>
+                      <Field label="Sucursal">
+                        <select style={inp} value={f.sucursal} onChange={set("sucursal")}>
+                          <option value="">Seleccionar</option>
+                          {SUCURSALES.map(x => <option key={x}>{x}</option>)}
+                        </select>
+                      </Field>
+                    </Grid>
+                    <Grid cols="1fr 1fr 72px" mb={0}>
+                      <Field label="Fecha">
+                        <input type="date" style={inp} value={f.fecha} onChange={set("fecha")} />
+                      </Field>
+                      <Field label="Hora">
+                        <select style={inp} value={f.hora} onChange={set("hora")}>
+                          <option value="">Hora</option>
+                          {HORAS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Min">
+                        <select style={inp} value={f.duracion} onChange={set("duracion")}>
+                          {DURACIONES.map(x => <option key={x}>{x}</option>)}
+                        </select>
+                      </Field>
+                    </Grid>
+                  </Section>
+
+                  <Section title="Datos del paciente">
+                    <div style={{ marginBottom:10 }}>
+                      <Field label="Nombre completo">
+                        <input style={inp} value={f.nombre} onChange={set("nombre")} placeholder="Nombre y apellidos" />
+                      </Field>
+                    </div>
+                    <Grid cols="1fr 70px">
+                      <Field label="Género">
+                        <select style={inp} value={f.genero} onChange={set("genero")}>
+                          <option>Masculino</option>
+                          <option>Femenino</option>
+                          <option>No especificado</option>
+                        </select>
+                      </Field>
+                      <Field label="Edad">
+                        <input type="number" style={inp} value={f.edad} onChange={set("edad")} placeholder="30" min={0} max={120} />
+                      </Field>
+                    </Grid>
+                    <div>
+                      <label style={lbl}>Tipo de paciente</label>
+                      <Toggle
+                        options={[{val:"Nuevo",label:"🆕 Nuevo"},{val:"Recurrente",label:"🔄 Recurrente"}]}
+                        value={f.tipo_paciente} onChange={v => tog("tipo_paciente",v)}
+                      />
+                    </div>
+                  </Section>
+
+                  <Section title="Consulta">
+                    <Grid>
+                      <Field label="Tipo de cita">
+                        <select style={inp} value={f.tipo_cita} onChange={set("tipo_cita")}>
+                          {TIPOS_CITA.map(x => <option key={x}>{x}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Estado del paciente">
+                        <select style={inp} value={f.estado} onChange={set("estado")}>
+                          {ESTADOS.map(x => <option key={x}>{x}</option>)}
+                        </select>
+                      </Field>
+                    </Grid>
+                    <Grid cols="1fr 110px" mb={0}>
+                      <Field label="Tratamiento">
+                        <input style={inp} value={f.tratamiento} onChange={set("tratamiento")} placeholder="ej. Puente fijo 3 piezas" />
+                      </Field>
+                      <Field label="Cotización $">
+                        <input type="number" style={inp} value={f.cotizacion} onChange={set("cotizacion")} placeholder="350" min={0} />
+                      </Field>
+                    </Grid>
+                  </Section>
+
+                  <Section title="Para el doctor">
+                    <Grid>
+                      <Field label="Motivo principal">
+                        <select style={inp} value={f.motivo} onChange={set("motivo")}>
+                          <option value="">Seleccionar</option>
+                          {MOTIVOS.map(x => <option key={x}>{x}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Decisión del paciente">
+                        <select style={inp} value={f.decision} onChange={set("decision")}>
+                          <option value="">Seleccionar</option>
+                          {DECISIONES.map(x => <option key={x}>{x}</option>)}
+                        </select>
+                      </Field>
+                    </Grid>
+                    <div style={{ marginBottom:10 }}>
+                      <Field label="Alergias / medicamentos">
+                        <input style={inp} value={f.alergias} onChange={set("alergias")} placeholder="Dejar vacío si no hay" />
+                      </Field>
+                    </div>
+                    <Field label="Notas adicionales">
+                      <textarea style={{ ...inp, resize:"vertical", minHeight:60 }}
+                        value={f.notas} onChange={set("notas")} placeholder="Lo que platicó con el paciente..." />
+                    </Field>
+                  </Section>
+
+                  <Section title="Origen del lead">
+                    <Grid>
+                      <Field label="Fuente">
+                        <select style={inp} value={f.fuente} onChange={set("fuente")}>
+                          {FUENTES.map(x => <option key={x}>{x}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Asesor">
+                        <input style={inp} value={f.asesor} onChange={set("asesor")} placeholder="Tu nombre" />
+                      </Field>
+                    </Grid>
+                    <div>
+                      <label style={lbl}>Color del lead</label>
+                      <div style={{ display:"flex", gap:8 }}>
+                        {Object.entries(LEAD).map(([val, col]) => {
+                          const active = f.lead === val;
+                          return (
+                            <button key={val} onClick={() => tog("lead",val)} style={{
+                              flex:1, padding:"10px 4px", fontSize:13, fontFamily:F,
+                              borderRadius:6,
+                              border:`1.5px solid ${active ? col.border : C.border}`,
+                              background:active ? col.bg : "#F6FAFB",
+                              color:active ? col.text : C.muted,
+                              fontWeight:active ? 600 : 400, cursor:"pointer",
+                            }}>{col.emoji} {val}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </Section>
+
+                  <button onClick={guardarCita} disabled={isSaving} style={{
+                    width:"100%", marginTop:10, padding:"12px",
+                    background:C.accent, border:"none",
+                    borderRadius:6, fontSize:14, color:"#fff", fontWeight:600, cursor:"pointer", fontFamily:F,
+                  }}>
+                    {isSaving ? "Guardando..." : "💾 Guardar Cita"}
+                  </button>
+                  {saveMsg && <div style={{ textAlign:'center', marginTop:8, fontSize:13, color:'#28a745', fontWeight:600 }}>{saveMsg}</div>}
+
+                  <button onClick={reset} style={{
+                    width:"100%", marginTop:12, padding:"9px",
+                    background:"transparent", border:`1px solid ${C.border}`,
+                    borderRadius:6, fontSize:12, color:C.muted, cursor:"pointer", fontFamily:F,
+                  }}>Limpiar formulario</button>
+                </div>
+              </div>
+
+              {/* ── PREVIEWS ── */}
+              <div style={{ flex:"1 1 260px", minWidth:250 }}>
+
+                <div style={{ fontSize:11, fontWeight:700, color:C.accent, marginBottom:8, letterSpacing:"0.05em" }}>MENSAJE — GRUPO DE CITAS</div>
+                <div style={{ background:"#E5DDD5", backgroundImage:"radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)", backgroundSize:"20px 20px", borderRadius:10, overflow:"hidden", border:"1px solid #C8BAB0", marginBottom:10 }}>
+                  <div style={{ background:"#075E54", padding:"10px 14px", display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ width:32, height:32, borderRadius:"50%", background:"#128C7E", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, color:"#fff", fontWeight:700 }}>D</div>
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:600, color:"#fff" }}>Citas Dental Más Fácil</div>
+                      <div style={{ fontSize:10, color:"#9EDCD6" }}>Asesores · Recepción · Doctores</div>
+                    </div>
+                  </div>
+                  <div style={{ padding:"12px 10px 14px" }}>
+                    <div style={{ display:"flex", justifyContent:"flex-end" }}>
+                      <div style={{ background:"#DCF8C6", borderRadius:"12px 2px 12px 12px", padding:"10px 12px 6px", maxWidth:"92%", boxShadow:"0 1px 2px rgba(0,0,0,0.15)" }}>
+                        <div style={{ fontSize:12, lineHeight:1.65, color:"#1A1A1A", fontFamily:F, wordBreak:"break-word" }}>
+                          {msgGrupo().split("\n").map((line, i) => {
+                            if (!line) return <div key={i} style={{ height:"0.6em" }} />;
+                            const parts = line.split(/(\*[^*]+\*)/g);
+                            return <div key={i}>{parts.map((p,j) => p.startsWith("*") && p.endsWith("*") ? <strong key={j}>{p.slice(1,-1)}</strong> : <span key={j}>{p}</span>)}</div>;
+                          })}
+                        </div>
+                        <div style={{ textAlign:"right", fontSize:10, color:"#6B8F78", marginTop:4 }}>{horaFmt || "—"} ✓✓</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => copy(msgGrupo(), setCp1)} style={{ width:"100%", padding:"13px", borderRadius:8, border:"none", background:cp1 ? "#1A5C38" : C.accent, color:"#fff", fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:F }}>{cp1 ? "✓ Copiado" : "Copiar — grupo"}</button>
+                <div style={{ height:1, background:C.border, margin:"20px 0" }} />
+
+                <div style={{ fontSize:11, fontWeight:700, color:"#128C7E", marginBottom:8, letterSpacing:"0.05em" }}>MENSAJE — CONFIRMACIÓN</div>
+                <div style={{ background:"#E5DDD5", backgroundImage:"radial-gradient(circle at 1px 1px, rgba(0,0,0,0.04) 1px, transparent 0)", backgroundSize:"20px 20px", borderRadius:10, overflow:"hidden", border:"1px solid #C8BAB0", marginBottom:10 }}>
+                  <div style={{ background:"#075E54", padding:"8px 14px", display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ width:28, height:28, borderRadius:"50%", background:"#128C7E", display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, color:"#fff", fontWeight:700 }}>
+                      {f.nombre ? f.nombre[0].toUpperCase() : "P"}
+                    </div>
+                    <div style={{ fontSize:12, fontWeight:600, color:"#fff" }}>{f.nombre ? f.nombre.split(" ")[0] : "Paciente"}</div>
+                  </div>
+                  <div style={{ padding:"12px 10px 14px" }}>
+                    <div style={{ display:"flex", justifyContent:"flex-end" }}>
+                      <div style={{ background:"#DCF8C6", borderRadius:"12px 2px 12px 12px", padding:"10px 12px 6px", maxWidth:"92%", boxShadow:"0 1px 2px rgba(0,0,0,0.15)" }}>
+                        <div style={{ fontSize:12, lineHeight:1.65, color:"#1A1A1A", fontFamily:F, wordBreak:"break-word" }}>
+                          {msgPaciente().split("\n").map((line, i) => {
+                            if (!line) return <div key={i} style={{ height:"0.6em" }} />;
+                            const parts = line.split(/(\*[^*]+\*)/g);
+                            return <div key={i}>{parts.map((p,j) => p.startsWith("*") && p.endsWith("*") ? <strong key={j}>{p.slice(1,-1)}</strong> : <span key={j}>{p}</span>)}</div>;
+                          })}
+                        </div>
+                        <div style={{ textAlign:"right", fontSize:10, color:"#6B8F78", marginTop:4 }}>{horaFmt || "—"} ✓✓</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => copy(msgPaciente(), setCp2)} style={{ width:"100%", padding:"13px", borderRadius:8, border:"none", background:cp2 ? "#1A5C38" : "#128C7E", color:"#fff", fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:F }}>{cp2 ? "✓ Copiado" : "Copiar — paciente"}</button>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Mis Citas */}
+          {tab === 'miscitas' && (
+            <div style={{ padding:"20px 14px", maxWidth:600, margin:"0 auto" }}>
+              {loadingCitas ? (
+                <div style={{ display:'flex', justifyContent:'center', padding:40 }}>
+                  <div className="spinner"></div>
+                </div>
+              ) : citas.length === 0 ? (
+                <div style={{ textAlign:'center', color:C.muted, padding:40 }}>No tienes citas registradas.</div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                  {citas.map(c => {
+                    const esPendiente = c.Estado === 'Pendiente';
+                    const cssBadge = c.Estado === 'Pendiente' ? 'pendiente' : c.Estado === 'Asistió' ? 'asistio' : 'no-asistio';
+                    
+                    return (
+                      <div key={c.ID} style={{ background:'#fff', padding:16, borderRadius:8, border:`1px solid ${C.border}`, boxShadow:'0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+                          <div>
+                            <div style={{ fontWeight:700, fontSize:15, color:C.text }}>{c.Paciente}</div>
+                            <div style={{ fontSize:12, color:C.muted, marginTop:2 }}>{c.Sucursal} · Dr(a). {c.Doctor}</div>
+                          </div>
+                          <span className={`badge ${cssBadge}`}>{c.Estado}</span>
+                        </div>
+                        
+                        <div style={{ fontSize:13, color:C.text, marginBottom:12 }}>
+                          📅 {fmtDate(c.Fecha)} 🕐 {fmtTime(c.Hora)}
+                        </div>
+                        
+                        {esPendiente && confirmandoAsistencia !== c.ID && (
+                          <div style={{ display:'flex', gap:8, marginTop:12 }}>
+                            <button onClick={() => setConfirmandoAsistencia(c.ID)} style={{ flex:1, padding:"8px", background:"#D4EDDA", color:"#155724", border:"1px solid #c3e6cb", borderRadius:6, fontWeight:600, cursor:'pointer' }}>✓ Asistió</button>
+                            <button onClick={() => marcarEstado(c.ID, 'No asistió')} style={{ flex:1, padding:"8px", background:"#F8D7DA", color:"#721C24", border:"1px solid #f5c6cb", borderRadius:6, fontWeight:600, cursor:'pointer' }}>✗ No asistió</button>
+                          </div>
+                        )}
+                        
+                        {esPendiente && confirmandoAsistencia === c.ID && (
+                          <div style={{ background:'#F6FAFB', padding:12, borderRadius:8, marginTop:12, border:`1px solid ${C.border}` }}>
+                            <div style={{ fontSize:12, fontWeight:600, color:C.text, marginBottom:8 }}>¿Qué paquete compró?</div>
+                            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                              {PAQUETES.map(pq => (
+                                <button key={pq} onClick={() => marcarEstado(c.ID, 'Asistió', pq)} style={{ flex:1, padding:"8px", background:C.accent, color:"#fff", border:"none", borderRadius:4, fontSize:12, cursor:'pointer' }}>{pq}</button>
+                              ))}
+                            </div>
+                            <div style={{ textAlign:'center', marginTop:10 }}>
+                              <a href="#" onClick={(e) => { e.preventDefault(); setConfirmandoAsistencia(null); }} style={{ fontSize:11, color:C.muted }}>Cancelar</a>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<CitaApp />);
+  </script>
+</body>
+</html>
