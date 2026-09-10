@@ -567,6 +567,8 @@
           <h2>Citas Registradas</h2>
         </div>
         <div class="table-controls">
+          <select id="pdfCitasMonthSelect" style="padding:8px 10px; border-radius:6px; border:1px solid var(--line); font-family:'Inter',sans-serif; font-size:13.5px; outline:none; background:var(--paper); color:var(--ink);"></select>
+          <button id="btnDownloadCitasPdf" class="btn-secondary" style="padding:8px 12px; font-size:13.5px; margin:0;">Descargar reporte PDF</button>
           <button id="btnRefreshCitas" class="btn-secondary" style="padding:8px 12px; font-size:13.5px; margin:0;">↻ Actualizar</button>
           <span class="count-tag" id="citasCount">0 citas</span>
         </div>
@@ -701,12 +703,202 @@ async function cargarCitas() {
     if(!res.ok) throw new Error('HTTP ' + res.status);
     citasData = await res.json();
     citasData.reverse(); // Mostrar más recientes primero
+    
+    // Poblar dropdown de meses
+    const select = document.getElementById('pdfCitasMonthSelect');
+    const currentSel = select.value;
+    select.innerHTML = '';
+    const mesesSet = new Set();
+    citasData.forEach(c => {
+      if(c.Fecha && c.Fecha.length >= 7) {
+        mesesSet.add(c.Fecha.substring(0,7)); // YYYY-MM
+      }
+    });
+    const sortedMonths = Array.from(mesesSet).sort((a,b)=>b.localeCompare(a));
+    if(sortedMonths.length === 0) {
+      select.innerHTML = '<option value="">Sin datos</option>';
+    } else {
+      sortedMonths.forEach(ym => {
+        const [y, m] = ym.split('-');
+        const opt = document.createElement('option');
+        opt.value = ym;
+        opt.textContent = `${monthNames[parseInt(m,10)-1] || m} ${y}`;
+        select.appendChild(opt);
+      });
+      if(currentSel && sortedMonths.includes(currentSel)) select.value = currentSel;
+      else select.value = sortedMonths[0];
+    }
+
     renderCitas();
   } catch(err) {
     console.error('Error al cargar citas:', err);
     document.getElementById('citasCount').textContent = 'Error';
   }
 }
+
+document.getElementById('btnDownloadCitasPdf').onclick = async () => {
+  const ym = document.getElementById('pdfCitasMonthSelect').value;
+  if(!ym) return alert("No hay datos para generar el reporte.");
+  const filtered = citasData.filter(c => c.Fecha && c.Fecha.startsWith(ym));
+  if(!filtered.length) return alert("No hay citas en el mes seleccionado.");
+
+  const btn = document.getElementById('btnDownloadCitasPdf');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = "Generando...";
+  btn.disabled = true;
+
+  try {
+    const [y_yr, mStr] = ym.split('-');
+    const mesLabel = monthNames[parseInt(mStr,10)-1] || mStr;
+    const title = `Reporte de Citas Programadas — ${mesLabel} ${y_yr}`;
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const PRIMARY_COLOR = [14, 165, 233];
+    const TEXT_COLOR = [30, 41, 59];
+    doc.setFont("helvetica");
+
+    // Logo base64
+    const imgEl = document.querySelector('.brand-mark img');
+    if (imgEl && imgEl.complete && imgEl.naturalWidth > 0) {
+      const canvas = document.createElement('canvas');
+      canvas.width = imgEl.naturalWidth; canvas.height = imgEl.naturalHeight;
+      const ctx = canvas.getContext('2d'); ctx.drawImage(imgEl, 0, 0);
+      const propHeight = 32 * (imgEl.naturalHeight / imgEl.naturalWidth);
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', 14, 15, 32, propHeight);
+    }
+
+    // Encabezado
+    doc.setFontSize(22); doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.text("Dental Más Fácil", 52, 22);
+    doc.setFontSize(14); doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
+    doc.text(title, 52, 30);
+    doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.setLineWidth(0.5); doc.line(14, 38, 196, 38);
+    doc.setFontSize(10); doc.setTextColor(100, 100, 100);
+    const now = new Date();
+    doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}`, 14, 46);
+
+    // Cálculos KPI
+    const total = filtered.length;
+    const asistio = filtered.filter(c => c.Estado === 'Asistió').length;
+    const noAsistio = filtered.filter(c => c.Estado === 'No asistió').length;
+    const pendiente = filtered.filter(c => c.Estado === 'Pendiente').length;
+
+    const kpis = [
+      { label: 'TOTAL CITAS', val: total },
+      { label: 'ASISTIERON', val: asistio },
+      { label: 'NO ASISTIERON', val: noAsistio },
+      { label: 'PENDIENTES', val: pendiente }
+    ];
+
+    let startX = 14; let startY = 55;
+    const cardW = 42; const cardH = 18; const gap = 4;
+    kpis.forEach((kpi, idx) => {
+      const cx = startX + (idx * (cardW + gap));
+      const cy = startY;
+      doc.setDrawColor(220, 220, 220); doc.setFillColor(250, 250, 250);
+      doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'FD');
+      doc.setTextColor(150, 150, 150); doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+      doc.text(kpi.label, cx + 4, cy + 6);
+      doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]); doc.setFont("helvetica", "normal"); doc.setFontSize(14);
+      doc.text(kpi.val.toString(), cx + 4, cy + 14);
+    });
+
+    // Gráficos de citas
+    const countsAsesorAgendadas = {};
+    const countsAsesorAsistidas = {};
+    filtered.forEach(c => {
+      const as = c.Asesor || 'N/A';
+      countsAsesorAgendadas[as] = (countsAsesorAgendadas[as] || 0) + 1;
+      if (c.Estado === 'Asistió') {
+        countsAsesorAsistidas[as] = (countsAsesorAsistidas[as] || 0) + 1;
+      } else if (!countsAsesorAsistidas[as]) {
+        countsAsesorAsistidas[as] = 0;
+      }
+    });
+
+    const asesoresSort = Object.keys(countsAsesorAgendadas).sort((a,b) => countsAsesorAgendadas[b] - countsAsesorAgendadas[a]);
+
+    const chartAsesor_b64 = await renderChartToBase64({
+      type: 'bar',
+      data: {
+        labels: asesoresSort,
+        datasets: [
+          { label: 'Asistieron', data: asesoresSort.map(a => countsAsesorAsistidas[a]), backgroundColor: '#10B981' },
+          { label: 'Agendadas', data: asesoresSort.map(a => countsAsesorAgendadas[a]), backgroundColor: '#0EA5E9' }
+        ]
+      },
+      options: { plugins: { title: { display: true, text: 'Rendimiento por Asesor' } } }
+    }, 600, 350);
+
+    const chartEstado_b64 = await renderChartToBase64({
+      type: 'doughnut',
+      data: {
+        labels: ['Asistió', 'No asistió', 'Pendiente'],
+        datasets: [{ data: [asistio, noAsistio, pendiente], backgroundColor: ['#10B981', '#EF4444', '#F59E0B'] }]
+      },
+      options: { plugins: { title: { display: true, text: 'Estado de las Citas' } } }
+    }, 350, 350);
+
+    doc.addImage(chartAsesor_b64, 'PNG', 14, 80, 110, 65);
+    doc.addImage(chartEstado_b64, 'PNG', 130, 80, 65, 65);
+
+    // Tabla
+    const tableData = [];
+    let currentAsesor = null;
+    const asList = [...filtered].sort((a,b) => (a.Asesor||'').localeCompare(b.Asesor||''));
+    asList.forEach(c => {
+      if(c.Asesor !== currentAsesor) {
+        currentAsesor = c.Asesor;
+        tableData.push([{ content: `Asesor: ${currentAsesor || 'Sin asignar'}`, colSpan: 4, styles: { fillColor: [240, 245, 250], fontStyle: 'bold' } }]);
+      }
+      tableData.push([
+        c.Paciente,
+        c.Fecha + ' ' + c.Hora,
+        c.Sucursal,
+        c.Estado
+      ]);
+      // Separador visual
+      tableData.push([{ content: '', colSpan: 4, styles: { minCellHeight: 2, fillColor: [255, 255, 255] } }]);
+    });
+
+    doc.autoTable({
+      startY: 155,
+      head: [['Paciente', 'Fecha / Hora', 'Sucursal', 'Estado']],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 3, textColor: [50, 50, 50], lineColor: [235, 240, 240] },
+      headStyles: { fillColor: PRIMARY_COLOR, textColor: [255, 255, 255], fontStyle: 'bold' },
+      didParseCell: function(data) {
+        if(data.section === 'body' && data.row.raw && data.row.raw.length === 1 && data.row.raw[0].content === '') {
+          data.cell.styles.fillColor = [255, 255, 255];
+          data.cell.styles.lineWidth = 0;
+          data.cell.styles.topBorder = false;
+          data.cell.styles.bottomBorder = false;
+        }
+      }
+    });
+
+    // Paginación
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8); doc.setTextColor(150);
+      doc.text(`Página ${i} de ${pageCount}`, 196, 290, { align: 'right' });
+      doc.text('Dental Más Fácil - Confidencial', 14, 290);
+    }
+
+    doc.save(`Reporte_Citas_DentalMasFacil_${mesLabel}_${y_yr}.pdf`);
+  } catch(err) {
+    console.error(err);
+    alert("Error al generar el reporte PDF.");
+  } finally {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  }
+};
+
 
 document.getElementById('btnRefreshCitas').addEventListener('click', cargarCitas);
 
