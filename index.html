@@ -375,10 +375,26 @@
     </div>
   </div>
 
-  <!-- CLINIC SIGNATURE STRIP -->
-  <div class="clinic-strip" id="clinicStrip"></div>
+  <style>
+    .main-tabs { display:flex; gap:16px; margin-bottom:24px; border-bottom:1px solid var(--line); }
+    .main-tab {
+      padding:10px 16px; font-size:15px; font-weight:600; color:var(--muted);
+      cursor:pointer; border-bottom:3px solid transparent; transition:all 0.15s ease;
+    }
+    .main-tab:hover { color:var(--ink); }
+    .main-tab.active { color:var(--primary-dark); border-bottom-color:var(--primary); }
+  </style>
 
-  <div class="grid">
+  <div class="main-tabs">
+    <div class="main-tab active" id="tabDashboard">Dashboard Asistencias</div>
+    <div class="main-tab" id="tabCitas">Citas Programadas</div>
+  </div>
+
+  <div id="viewDashboard">
+    <!-- CLINIC SIGNATURE STRIP -->
+    <div class="clinic-strip" id="clinicStrip"></div>
+
+    <div class="grid">
 
     <!-- FORM -->
     <div class="panel" id="formPanel">
@@ -539,8 +555,61 @@
       </div>
     </div>
 
-  </div>
-</div>
+  </div> <!-- end grid -->
+  </div> <!-- end viewDashboard -->
+
+  <!-- TAB CITAS -->
+  <div id="viewCitas" style="display:none;">
+    <div class="panel table-panel">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">Programación</div>
+          <h2>Citas Registradas</h2>
+        </div>
+        <div class="table-controls">
+          <button id="btnRefreshCitas" class="btn-secondary" style="padding:8px 12px; font-size:13.5px; margin:0;">↻ Actualizar</button>
+          <span class="count-tag" id="citasCount">0 citas</span>
+        </div>
+      </div>
+      <div class="filters">
+        <input type="text" id="fcSearch" placeholder="Buscar paciente o asesor...">
+        <select id="fcEstado">
+          <option value="">Todos los estados</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="Asistió">Asistió</option>
+          <option value="No asistió">No asistió</option>
+        </select>
+        <select id="fcAsesor">
+          <option value="">Todos los asesores</option>
+          <option value="Miguel">Miguel</option>
+          <option value="Carlos">Carlos</option>
+          <option value="Zoe">Zoe</option>
+          <option value="Edgar">Edgar</option>
+        </select>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Paciente</th>
+              <th>Fecha / Hora</th>
+              <th>Sucursal</th>
+              <th>Doctor</th>
+              <th>Asesor</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyCitas"></tbody>
+        </table>
+        <div class="empty-state" id="emptyStateCitas">
+          <div class="glyph">🦷</div>
+          <p>No hay citas registradas.</p>
+        </div>
+      </div>
+    </div>
+  </div> <!-- end viewCitas -->
+
+</div> <!-- end wrap -->
 
 <script>
 const emptyChartPlugin = {
@@ -567,9 +636,30 @@ Chart.register(emptyChartPlugin);
 
 const CLINICAS = ["Tijuana", "Mexicali - Obregón", "Mexicali - Villa Verde", "Ensenada"];
 let registros = [];
+let citasData = [];
 let selPaquete = null, selOrigen = [], clinicFilterActive = null;
 let chartClinicas, chartPaquetes;
 let APPS_SCRIPT_URL = localStorage.getItem('dmf_apps_script_url') || '';
+
+// ---------- tabs ----------
+const tabDashboard = document.getElementById('tabDashboard');
+const tabCitas = document.getElementById('tabCitas');
+const viewDashboard = document.getElementById('viewDashboard');
+const viewCitas = document.getElementById('viewCitas');
+
+tabDashboard.addEventListener('click', () => {
+  tabDashboard.classList.add('active');
+  tabCitas.classList.remove('active');
+  viewDashboard.style.display = 'block';
+  viewCitas.style.display = 'none';
+});
+tabCitas.addEventListener('click', () => {
+  tabCitas.classList.add('active');
+  tabDashboard.classList.remove('active');
+  viewDashboard.style.display = 'none';
+  viewCitas.style.display = 'block';
+  if(citasData.length === 0) cargarCitas();
+});
 
 // ---------- header date ----------
 document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
@@ -601,6 +691,74 @@ async function cargarDesdeSheets(){
     setConnStatus('off', 'Sin conexión');
   }
 }
+
+async function cargarCitas() {
+  if(!APPS_SCRIPT_URL) return;
+  document.getElementById('citasCount').textContent = 'Cargando...';
+  try {
+    const urlCacheBuster = APPS_SCRIPT_URL + '?tipo=citas&t=' + Date.now();
+    const res = await fetch(urlCacheBuster, { method:'GET', cache: 'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    citasData = await res.json();
+    citasData.reverse(); // Mostrar más recientes primero
+    renderCitas();
+  } catch(err) {
+    console.error('Error al cargar citas:', err);
+    document.getElementById('citasCount').textContent = 'Error';
+  }
+}
+
+document.getElementById('btnRefreshCitas').addEventListener('click', cargarCitas);
+
+document.getElementById('fcSearch').addEventListener('input', renderCitas);
+document.getElementById('fcEstado').addEventListener('change', renderCitas);
+document.getElementById('fcAsesor').addEventListener('change', renderCitas);
+
+function renderCitas() {
+  const tbody = document.getElementById('tbodyCitas');
+  const empty = document.getElementById('emptyStateCitas');
+  tbody.innerHTML = '';
+  
+  const search = document.getElementById('fcSearch').value.toLowerCase();
+  const estado = document.getElementById('fcEstado').value;
+  const asesor = document.getElementById('fcAsesor').value;
+
+  const filtered = citasData.filter(c => {
+    if(search && !c.Paciente.toLowerCase().includes(search) && (!c.Asesor || !c.Asesor.toLowerCase().includes(search))) return false;
+    if(estado && c.Estado !== estado) return false;
+    if(asesor && c.Asesor !== asesor) return false;
+    return true;
+  });
+
+  document.getElementById('citasCount').textContent = `${filtered.length} citas`;
+
+  if(filtered.length === 0) {
+    tbody.parentElement.style.display = 'none';
+    empty.style.display = 'block';
+  } else {
+    tbody.parentElement.style.display = 'table';
+    empty.style.display = 'none';
+    
+    filtered.forEach(c => {
+      const tr = document.createElement('tr');
+      const cssBadge = c.Estado === 'Pendiente' ? 'badge propia' : c.Estado === 'Asistió' ? 'badge individual' : 'badge danger'; // usando las clases existentes para los colores
+      let estadoHtml = `<span class="${cssBadge}" style="${c.Estado === 'No asistió' ? 'background:#F8D7DA; color:#721C24;' : c.Estado === 'Pendiente' ? 'background:#FFF3CD; color:#856404;' : ''}">${c.Estado}</span>`;
+      
+      const pacLink = c.Telefono ? `<a href="https://wa.me/${c.Telefono}" target="_blank" style="text-decoration:none; color:inherit;">${c.Paciente}</a>` : c.Paciente;
+      
+      tr.innerHTML = `
+        <td><div class="pac-name">${c.Paciente}</div><div class="pac-meta">${c.TipoCita || ''}</div></td>
+        <td>${c.Fecha} ${c.Hora}</td>
+        <td>${c.Sucursal}</td>
+        <td>${c.Doctor || '—'}</td>
+        <td>${c.Asesor || '—'}</td>
+        <td>${estadoHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+}
+
 
 window.addEventListener('hashchange', () => {
   checkDeepLink();
