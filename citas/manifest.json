@@ -2,6 +2,8 @@
   "name": "Citas Dental Más Fácil",
   "short_name": "Citas DMF",
   "description": "Agendación de citas para asesores de Dental Más Fácil",
+  "id": "/Reporte-Asistencia-D-F/citas/",
+  "scope": "/Reporte-Asistencia-D-F/citas/",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#EFF4F7",

@@ -2,6 +2,8 @@
   "name": "Dental Más Fácil - Asistencia",
   "short_name": "DMF Asistencia",
   "description": "Dashboard de Registro de Asistencia",
+  "id": "/Reporte-Asistencia-D-F/",
+  "scope": "/Reporte-Asistencia-D-F/",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
