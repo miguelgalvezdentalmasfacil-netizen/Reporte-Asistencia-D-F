@@ -1,0 +1,22 @@
+{
+  "name": "Citas Dental Más Fácil",
+  "short_name": "Citas DMF",
+  "description": "Agendación de citas para asesores de Dental Más Fácil",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#EFF4F7",
+  "theme_color": "#0EA5E9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "../logo-dental-mas-facil.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "../logo-dental-mas-facil.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
