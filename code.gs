@@ -565,15 +565,17 @@ function doGet(e) {
   return jsonOutput_(records);
 }
 
+const CITAS_HEADERS = ['ID', 'Fecha', 'Hora', 'Sucursal', 'Doctor', 'Asesor', 'Paciente', 'Genero', 'Edad',
+  'TipoPaciente', 'TipoCita', 'Tratamiento', 'Cotizacion', 'Motivo', 'Decision', 'Alergias', 'Notas',
+  'Fuente', 'Lead', 'Estado', 'RegistradoEl', 'Paquete'];
+
 function getOrCreateCitasSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(SHEET_CITAS);
+  let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CITAS);
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_CITAS);
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_CITAS);
     sheet.getRange(1, 1, 1, CITAS_HEADERS.length).setValues([CITAS_HEADERS])
       .setFontWeight('bold').setFontColor('#FFFFFF').setBackground('#0F7A6E').setFontSize(10);
     sheet.setFrozenRows(1);
-    sheet.hideColumns(1);
   }
   return sheet;
 }
@@ -603,7 +605,8 @@ function crearCita_(data) {
     data.fuente || '',
     data.lead || '',
     'Pendiente',
-    new Date()
+    new Date(),
+    data.paquete || ''
   ]);
 
   return jsonOutput_({ status: 'ok', id: id });
@@ -630,17 +633,17 @@ function marcarAsistencia_(data) {
     const cita = {};
     CITAS_HEADERS.forEach((h, i) => { cita[h] = rowVals[i]; });
 
-    const asesor = cita['Asesor'];
-    const origen = (asesor && asesor !== '') ? 'Por asesor' : 'Cuenta propia';
+      const asesor = cita['Asesor'];
+      const origen = (asesor && asesor !== '') ? 'Por asesor' : 'Cuenta propia';
 
-    insertarRegistro_({
-      nombre: cita['Paciente'],
-      clinica: cita['Sucursal'],
-      asesor: asesor,
-      paquete: data.paquete || 'Individual',
-      origen: origen,
-      fecha: cita['Fecha']
-    });
+      insertarRegistro_({
+        nombre: cita['Paciente'],
+        clinica: cita['Sucursal'],
+        asesor: asesor,
+        paquete: data.paquete || cita['Paquete'] || 'Individual',
+        origen: origen,
+        fecha: cita['Fecha']
+      });
   }
 
   return jsonOutput_({ status: 'ok' });

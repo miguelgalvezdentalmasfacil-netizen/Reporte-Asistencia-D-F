@@ -255,7 +255,7 @@
     const DECISIONES = ["Explorando opciones","Lista para iniciar","Urgente, ya decidió"];
     const FUENTES    = ["Meta Ads","Publicidad externa"];
     const ESTADOS    = ["En valoración","Ya decidió","Urgente"];
-    const PAQUETES   = ["Individual", "Dual", "Familiar"];
+    const PAQUETES   = ["Individual", "Dual", "Familiar", "Convenio"];
     const ASESORES   = ["Miguel", "Carlos", "Zoe", "Edgar"];
 
     const HORAS = (() => {
@@ -297,7 +297,7 @@
       nombre:"", genero:"Masculino", edad:"", tipo_paciente:"Nuevo",
       tipo_cita:"Valoración", tratamiento:"", cotizacion:"", estado:"En valoración",
       motivo:"", decision:"", alergias:"", notas:"",
-      fuente:"Meta Ads", lead:"Verde", asesor:"",
+      fuente:"Meta Ads", lead:"Verde", asesor:"", paquete:"Individual",
     };
 
     function CitaApp() {
@@ -421,7 +421,7 @@
         const hora  = f.hora  ? fmtTime(f.hora)  : "—";
         const tipo  = f.tipo_paciente === "Nuevo" ? "Paciente nuevo" : "Paciente recurrente";
         const costo = f.cotizacion ? `$${Number(f.cotizacion).toLocaleString("es-MX")}` : null;
-        const l2    = [costo, f.estado].filter(Boolean).join(" · ");
+        const l2    = [costo, f.estado, f.paquete ? `Paquete ${f.paquete}` : null].filter(Boolean).join(" · ");
         const sucursalFmt = f.sucursal ? f.sucursal.replace(" - ", " ") : "—";
 
         const rows  = [
@@ -641,10 +641,16 @@
                     </div>
                   </div>
 
-                  <div className="grid-2" style={{gridTemplateColumns:'1fr 120px'}}>
+                  <div className="grid-2" style={{gridTemplateColumns:'1fr 140px 120px'}}>
                     <div className="field">
                       <label>Tratamiento</label>
                       <input type="text" value={f.tratamiento} onChange={set("tratamiento")} placeholder="Ej. Extracción" />
+                    </div>
+                    <div className="field">
+                      <label>Paquete</label>
+                      <select value={f.paquete} onChange={set("paquete")}>
+                        {PAQUETES.map(x => <option key={x}>{x}</option>)}
+                      </select>
                     </div>
                     <div className="field">
                       <label>Cotización $</label>
