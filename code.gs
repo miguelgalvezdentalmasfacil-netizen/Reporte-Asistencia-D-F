@@ -657,11 +657,17 @@ function obtenerCitas_(e) {
   const values = sheet.getRange(2, 1, lastRow - 1, CITAS_HEADERS.length).getValues();
   let citas = values.map(row => {
     const obj = {};
-    CITAS_HEADERS.forEach((h, i) => {
-      let v = row[i];
-      if (v instanceof Date) v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-      obj[h] = v;
-    });
+      CITAS_HEADERS.forEach((h, i) => {
+        let v = row[i];
+        if (v instanceof Date) {
+           if (h === 'Hora') {
+             v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'HH:mm');
+           } else {
+             v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+           }
+        }
+        obj[h] = v;
+      });
     return obj;
   }).filter(c => c['Paciente']);
 
