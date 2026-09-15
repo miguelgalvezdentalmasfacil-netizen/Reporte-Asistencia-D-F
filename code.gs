@@ -9,7 +9,7 @@ const HEADERS = ['ID', 'Fecha asistencia', 'Paciente', 'Clínica', 'Asesor', 'Pa
 const SHEET_CITAS = 'Citas';
 const CITAS_HEADERS = ['ID', 'Fecha', 'Hora', 'Sucursal', 'Doctor', 'Asesor', 'Paciente', 'Genero', 'Edad',
   'TipoPaciente', 'TipoCita', 'Tratamiento', 'Cotizacion', 'Motivo', 'Decision', 'Alergias', 'Notas',
-  'Fuente', 'Lead', 'Estado', 'RegistradoEl'];
+  'Fuente', 'Lead', 'Estado', 'RegistradoEl', 'Paquete'];
 
 const VIEW_ASESOR_SHEET = 'Por Asesor';
 const VIEW_CUENTA_PROPIA_SHEET = 'Cuenta Propia por Clínica';
@@ -565,11 +565,7 @@ function doGet(e) {
   return jsonOutput_(records);
 }
 
-const CITAS_HEADERS = ['ID', 'Fecha', 'Hora', 'Sucursal', 'Doctor', 'Asesor', 'Paciente', 'Genero', 'Edad',
-  'TipoPaciente', 'TipoCita', 'Tratamiento', 'Cotizacion', 'Motivo', 'Decision', 'Alergias', 'Notas',
-  'Fuente', 'Lead', 'Estado', 'RegistradoEl', 'Paquete'];
 
-function getOrCreateCitasSheet_() {
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CITAS);
   if (!sheet) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_CITAS);
