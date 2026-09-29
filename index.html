@@ -423,13 +423,15 @@
 
           <div class="field">
             <label for="asesor">Asesor correspondiente</label>
-            <select id="asesor">
+            <select id="asesor" onchange="if(this.value==='Otro'){document.getElementById('asesorOtro').style.display='block';document.getElementById('asesorOtro').focus();}else{document.getElementById('asesorOtro').style.display='none';document.getElementById('asesorOtro').value='';}">
               <option value="" disabled selected>Selecciona un asesor</option>
               <option value="Miguel">Miguel</option>
               <option value="Carlos">Carlos</option>
               <option value="Zoe">Zoe</option>
               <option value="Edgar">Edgar</option>
+              <option value="Otro">Otro...</option>
             </select>
+            <input type="text" id="asesorOtro" placeholder="Escribe el nombre del asesor" style="display:none; margin-top:8px; width:100%; padding:12px 14px; border:1px solid var(--line); border-radius:9px; font-family:'Inter',sans-serif; font-size:16px; color:var(--ink); background:var(--paper); outline:none;" autocomplete="off">
           </div>
 
           <div class="field">
@@ -445,6 +447,7 @@
             <label>Origen</label>
             <div class="chip-group" id="origenChips">
               <div class="chip sel-origen" data-val="Convenio">Convenio</div>
+              <div class="chip sel-origen" data-val="Doctoralia">Doctoralia</div>
             </div>
 
           </div>
@@ -1108,11 +1111,22 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const nombre = document.getElementById('nombre').value.trim();
   const clinica = document.getElementById('clinica').value;
-  const asesor = document.getElementById('asesor').value;
+  let asesor = document.getElementById('asesor').value;
+  
+  if (asesor === 'Otro') {
+    asesor = document.getElementById('asesorOtro').value.trim();
+  }
+
   const fecha = document.getElementById('fecha').value;
   const errorEl = document.getElementById('formError');
 
   if(!nombre || !clinica || !selPaquete){
+    errorEl.textContent = 'Completa nombre, clínica y paquete antes de registrar.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (document.getElementById('asesor').value === 'Otro' && !asesor) {
+    errorEl.textContent = 'Escribe el nombre del asesor.';
     errorEl.style.display = 'block';
     return;
   }
@@ -1121,6 +1135,9 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   let finalOrigen = asesor ? "Por asesor" : "Cuenta propia";
   if (selOrigen.includes("Convenio")) {
     finalOrigen += ", Convenio";
+  }
+  if (selOrigen.includes("Doctoralia")) {
+    finalOrigen += ", Doctoralia";
   }
 
   const nuevoRegistro = {
@@ -1134,6 +1151,8 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
 
   // reset form
   document.getElementById('regForm').reset();
+  document.getElementById('asesorOtro').style.display = 'none';
+  document.getElementById('asesorOtro').value = '';
   document.getElementById('fecha').valueAsDate = new Date();
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   selPaquete = null; selOrigen = [];
