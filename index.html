@@ -209,7 +209,7 @@
   .form-error{font-size:12.5px;color:var(--danger);margin-top:8px;display:none;}
 
   /* stats row */
-  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px;}
   .mini-stat{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
     padding:16px 20px;box-shadow:var(--shadow);display:flex;flex-direction:column;justify-content:center;
@@ -485,6 +485,11 @@
           <div class="label">Convenio</div>
           <div class="value" id="statConvenio">0</div>
           <div class="sub" id="statConvenioPct">0% del total</div>
+        </div>
+        <div class="mini-stat">
+          <div class="label">Doctoralia</div>
+          <div class="value" id="statDoctoralia">0</div>
+          <div class="sub" id="statDoctoraliaPct">0% del total</div>
         </div>
       </div>
 
@@ -1197,6 +1202,7 @@ function renderStats(data){
   const individual = data.filter(r => r.paquete === 'Individual').length;
   const dualFam = data.filter(r => r.paquete === 'Dual' || r.paquete === 'Familiar').length;
   const convenio = data.filter(r => r.origen.includes('Convenio')).length;
+  const doctoralia = data.filter(r => r.origen.includes('Doctoralia')).length;
   const pct = (n) => total ? Math.round(n/total*100) + '% del total' : '0% del total';
 
   document.getElementById('statTotal').textContent = total;
@@ -1206,6 +1212,8 @@ function renderStats(data){
   document.getElementById('statDualFamPct').textContent = pct(dualFam);
   document.getElementById('statConvenio').textContent = convenio;
   document.getElementById('statConvenioPct').textContent = pct(convenio);
+  document.getElementById('statDoctoralia').textContent = doctoralia;
+  document.getElementById('statDoctoraliaPct').textContent = pct(doctoralia);
 }
 
 // ---------- charts ----------

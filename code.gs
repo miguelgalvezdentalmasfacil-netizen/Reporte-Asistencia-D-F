@@ -324,10 +324,13 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
       
       rowsMes.forEach(r => {
         const tieneAsesor = r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—';
-        const valorCol3 = origen === 'Cuenta propia'
-          ? clinica
-          : (tieneAsesor ? 'Asesor: ' + r.asesor.toUpperCase() : 'Cuenta propia (clínica)');
-        filasFinales.push([r.nombre, r.fecha, valorCol3]);
+        let val3 = clinica;
+        if (origen === 'Cuenta propia' && String(r.origen).includes('Doctoralia')) {
+          val3 = clinica + ' (Doctoralia)';
+        } else if (origen !== 'Cuenta propia') {
+          val3 = tieneAsesor ? 'Asesor: ' + r.asesor.toUpperCase() : 'Cuenta propia (clínica)';
+        }
+        filasFinales.push([r.nombre, r.fecha, val3]);
       });
 
       // Rellenar con vacíos
