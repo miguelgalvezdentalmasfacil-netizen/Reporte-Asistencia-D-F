@@ -1,17 +1,11 @@
-// Generador de PDF con estilo Dashboard Moderno
-
 document.getElementById('btnComparePdf').onclick = async () => {
   const ym = document.getElementById('pdfMonthSelect').value;
-  if(!ym) {
-    alert("No hay mes seleccionado.");
-    return;
-  }
+  if(!ym) { alert("No hay mes seleccionado."); return; }
   
   const [y_yr, mStr] = ym.split('-');
   let mes = parseInt(mStr, 10);
   let anio = parseInt(y_yr, 10);
-  mes--;
-  if(mes === 0) { mes = 12; anio--; }
+  mes--; if(mes === 0) { mes = 12; anio--; }
   const ymPasado = `${anio}-${mes.toString().padStart(2, '0')}`;
   
   const dataActual = registros.filter(r => r.fecha && r.fecha.startsWith(ym));
@@ -24,255 +18,344 @@ document.getElementById('btnComparePdf').onclick = async () => {
   
   const btn = document.getElementById('btnComparePdf');
   const originalText = btn.innerHTML;
-  btn.innerHTML = "Generando Diseño...";
   btn.disabled = true;
 
   try {
     const mesLabelActual = monthNames[parseInt(mStr,10)-1];
     const mesLabelPasado = monthNames[mes-1];
 
-    // Cálculos
-    const tAct = dataActual.length;
-    const tPas = dataPasado.length;
-    const difT = tAct - tPas;
-    const pIndAct = dataActual.filter(r => r.paquete === 'Individual').length;
-    const pDuaAct = dataActual.filter(r => r.paquete === 'Dual' || r.paquete === 'Familiar').length;
-    
-    // Asesores (Mejor y Peor)
-    const countAsesores = (data) => {
-      let map = {};
-      data.forEach(r => {
-        if(r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—') map[r.asesor] = (map[r.asesor] || 0) + 1;
-      });
-      return map;
+    const PAGE_W = 1600;
+    const PAGE_H = 950;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [PAGE_W, PAGE_H] });
+
+    // CSS y utilidades comunes
+    const diffBadge = (d) => {
+      if(d > 0) return `<span style="color:#10b981; font-weight:bold;">▲ +${d}</span>`;
+      if(d < 0) return `<span style="color:#ef4444; font-weight:bold;">▼ ${d}</span>`;
+      return `<span style="color:#94a3b8; font-weight:bold;">= 0</span>`;
     };
-    const asesoresAct = countAsesores(dataActual);
-    const asesoresPas = countAsesores(dataPasado);
-    const todosAsesores = Array.from(new Set([...Object.keys(asesoresAct), ...Object.keys(asesoresPas)]));
-    let crecimientos = todosAsesores.map(a => {
-      const act = asesoresAct[a] || 0;
-      const pas = asesoresPas[a] || 0;
-      return { asesor: a, act, pas, dif: act - pas };
-    }).sort((a,b) => b.dif - a.dif);
+    const diffBadgeBg = (d) => {
+      if(d > 0) return `<div style="padding: 4px 10px; background:#ecfdf5; color:#047857; border-radius:12px; font-weight:bold; font-size:14px; border:1px solid #a7f3d0;">▲ +${d}</div>`;
+      if(d < 0) return `<div style="padding: 4px 10px; background:#fef2f2; color:#b91c1c; border-radius:12px; font-weight:bold; font-size:14px; border:1px solid #fecaca;">▼ ${d}</div>`;
+      return `<div style="padding: 4px 10px; background:#f1f5f9; color:#64748b; border-radius:12px; font-weight:bold; font-size:14px; border:1px solid #e2e8f0;">= 0</div>`;
+    };
     
-    const mejor = crecimientos.length > 0 && crecimientos[0].dif > 0 ? crecimientos[0] : null;
-    const peor = crecimientos.length > 0 && crecimientos[crecimientos.length-1].dif < 0 ? crecimientos[crecimientos.length-1] : null;
+    const CLINICAS_FULL = ['Tijuana', 'Mexicali - Obregón', 'Mexicali - Villa Verde', 'Ensenada'];
+    const getClincName = (c) => c.replace('Mexicali - ', 'Mex-');
 
-    // Crear contenedor HTML oculto
-    const container = document.createElement('div');
-    container.id = 'pdf-render-container';
-    container.style.position = 'absolute';
-    container.style.top = '-9999px';
-    container.style.left = '-9999px';
-    container.style.width = '1600px';
-    container.style.height = '950px'; 
-    container.style.background = 'linear-gradient(to bottom right, #f4f7f6, #e9eff1)';
-    container.style.fontFamily = "'Inter', sans-serif";
-    container.style.color = '#1E293B';
-    container.style.display = 'flex';
-    container.style.boxSizing = 'border-box';
-    
-    // HTML Estructura (Inspirado en la imagen subida)
-    container.innerHTML = `
-      <!-- Sidebar Estético -->
-      <div style="width: 100px; background: #ffffff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; padding: 40px 0; gap: 30px;">
-        <div style="width: 48px; height: 48px; border-radius: 12px; background: #0f172a; display:flex; align-items:center; justify-content:center; margin-bottom: 20px;">
-          <div style="width:24px; height:24px; border:2px solid #fff; border-radius:4px;"></div>
-        </div>
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0;"></div>
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0;"></div>
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0;"></div>
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0;"></div>
-        <div style="flex: 1;"></div>
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0;"></div>
-      </div>
-      
-      <!-- Contenido Principal -->
-      <div style="flex: 1; padding: 60px 80px; display: flex; flex-direction: column; gap: 40px; box-sizing: border-box;">
-        
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-          <div>
-            <div style="font-size: 20px; color: #64748B; margin-bottom: 8px;">Dental Más Fácil • Analítica de Datos</div>
-            <h1 style="font-size: 48px; font-weight: 700; margin: 0; letter-spacing: -1px; color: #0f172a;">Dashboard Comparativo</h1>
+    const baseHtml = (title, content) => `
+      <div style="width: 1600px; height: 950px; background: #f8fafc; font-family: 'Inter', sans-serif; display: flex; color: #0f172a; box-sizing: border-box;">
+        <!-- Sidebar Falso -->
+        <div style="width: 80px; background: #ffffff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; padding: 40px 0; gap: 24px;">
+          <div style="width: 48px; height: 48px; border-radius: 12px; background: #0f172a; display:flex; align-items:center; justify-content:center; margin-bottom: 20px;">
+            <div style="width:24px; height:24px; border:2px solid #fff; border-radius:4px;"></div>
           </div>
-          <div style="display: flex; gap: 12px; align-items: center;">
-            <div style="padding: 12px 24px; border-radius: 999px; background: #fff; color: #64748B; border: 1px solid #e2e8f0; font-weight: 500; font-size: 16px;">Mes Anterior: ${mesLabelPasado}</div>
-            <div style="padding: 12px 24px; border-radius: 999px; background: #0f172a; color: #fff; font-weight: 600; font-size: 16px;">Mes Actual: ${mesLabelActual}</div>
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1;"></div>
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1;"></div>
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1;"></div>
+        </div>
+        <!-- Main Content -->
+        <div style="flex: 1; padding: 50px 70px; display: flex; flex-direction: column; box-sizing: border-box;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px;">
+            <div>
+              <div style="font-size: 18px; color: #64748B; margin-bottom: 8px;">Dental Más Fácil • Análisis Mensual</div>
+              <h1 style="font-size: 42px; font-weight: 800; margin: 0; letter-spacing: -1px; color: #0f172a;">${title}</h1>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <div style="padding: 10px 20px; border-radius: 999px; background: #fff; color: #64748B; border: 1px solid #e2e8f0; font-weight: 500; font-size: 15px;">vs ${mesLabelPasado}</div>
+              <div style="padding: 10px 20px; border-radius: 999px; background: #0ea5e9; color: #fff; font-weight: 600; font-size: 15px;">${mesLabelActual} ${y_yr}</div>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column;">
+            ${content}
           </div>
         </div>
-        
-        <!-- Grid de Cards -->
-        <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 30px; margin-top: 10px; flex: 1;">
-          
-          <!-- Columna 1: Resumen General y Origen -->
-          <div style="display: flex; flex-direction: column; gap: 30px;">
-            <div style="background: #ffffff; border-radius: 30px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.03);">
-              <h3 style="font-size: 22px; color: #0f172a; margin: 0 0 24px 0; font-weight: 600;">Volumen Total</h3>
-              <div style="display: flex; justify-content: space-between; align-items: flex-end;">
-                <div>
-                  <div style="font-size: 72px; font-weight: 700; color: #0f172a; line-height: 1;">${tAct}</div>
-                  <div style="font-size: 18px; color: #64748B; margin-top: 12px;">Pacientes en ${mesLabelActual}</div>
-                </div>
-                <div style="padding: 16px 24px; border-radius: 20px; background: ${difT >= 0 ? '#ecfdf5' : '#fef2f2'}; border: 1px solid ${difT >= 0 ? '#a7f3d0' : '#fecaca'}; text-align: center;">
-                  <div style="font-size: 24px; font-weight: 700; color: ${difT >= 0 ? '#047857' : '#b91c1c'};">${difT >= 0 ? '▲ +'+Math.abs(difT) : '▼ -'+Math.abs(difT)}</div>
-                  <div style="font-size: 14px; font-weight: 500; color: ${difT >= 0 ? '#065f46' : '#991b1b'}; margin-top: 4px;">vs pasado</div>
-                </div>
-              </div>
-            </div>
-            
-            <div style="background: #ffffff; border-radius: 30px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.03); flex: 1;">
-               <h3 style="font-size: 22px; color: #0f172a; margin: 0 0 20px 0; font-weight: 600;">Asesores Destacados</h3>
-               ${mejor ? `
-                 <div style="margin-bottom: 24px;">
-                   <div style="font-size: 14px; color: #10b981; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">🏆 Mayor Crecimiento</div>
-                   <div style="font-size: 22px; font-weight: 600; color: #0f172a;">${mejor.asesor}</div>
-                   <div style="font-size: 16px; color: #64748B;">+${mejor.dif} pacientes (Total: ${mejor.act})</div>
-                 </div>
-               ` : '<div style="color: #64748B;">Sin datos suficientes</div>'}
-               ${peor ? `
-                 <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #f1f5f9;">
-                   <div style="font-size: 14px; color: #ef4444; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">📉 Mayor Caída</div>
-                   <div style="font-size: 22px; font-weight: 600; color: #0f172a;">${peor.asesor}</div>
-                   <div style="font-size: 16px; color: #64748B;">${peor.dif} pacientes (Total: ${peor.act})</div>
-                 </div>
-               ` : ''}
-            </div>
-          </div>
-
-          <!-- Columna 2: Grafico Central (Donut) -->
-          <div style="background: #ffffff; border-radius: 30px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
-            <div style="display:flex; justify-content: space-between; align-items:flex-start;">
-              <div>
-                <h3 style="font-size: 22px; color: #0f172a; margin: 0 0 8px 0; font-weight: 600;">Desglose de Origen</h3>
-                <p style="color: #64748B; margin: 0 0 40px 0; font-size: 16px;">Mes Actual (${mesLabelActual})</p>
-              </div>
-              <div style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; color:#64748B;">↗</div>
-            </div>
-            
-            <div style="flex: 1; position: relative;">
-              <canvas id="pdfChartDonut"></canvas>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px;">
-              ${["Cuenta propia", "Doctoralia", "Convenio", "Por asesor"].map((orig, i) => {
-                const colors = ['#3b82f6', '#0ea5e9', '#f97316', '#8b5cf6'];
-                const oAct = dataActual.filter(r => r.origen && r.origen.includes(orig)).length;
-                return `
-                  <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="width: 14px; height: 14px; border-radius: 50%; background: ${colors[i]};"></div>
-                    <div>
-                      <div style="font-size: 14px; color: #64748B;">${orig}</div>
-                      <div style="font-weight: 700; color: #0f172a; font-size: 18px;">${oAct}</div>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-
-          <!-- Columna 3: Tendencias (Barras Clinicas) -->
-          <div style="background: #ffffff; border-radius: 30px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
-            <div style="display:flex; justify-content: space-between; align-items:flex-start;">
-              <div>
-                <h3 style="font-size: 22px; color: #0f172a; margin: 0 0 8px 0; font-weight: 600;">Rendimiento por Clínica</h3>
-                <p style="color: #64748B; margin: 0 0 30px 0; font-size: 16px;">Comparativa Mensual</p>
-              </div>
-              <div style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; color:#64748B;">⇌</div>
-            </div>
-            
-            <div style="flex: 1; position: relative;">
-              <canvas id="pdfChartClinicas"></canvas>
-            </div>
-            
-            <div style="margin-top: 30px; padding-top: 24px; border-top: 1px solid #f1f5f9; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-              ${["Tijuana", "Mexicali - Obregón", "Mexicali - Villa Verde", "Ensenada"].map(clinica => {
-                const cAct = dataActual.filter(r => r.clinica === clinica).length;
-                const cPas = dataPasado.filter(r => r.clinica === clinica).length;
-                const dif = cAct - cPas;
-                return `
-                  <div>
-                    <div style="font-size: 14px; color: #64748B; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${clinica.replace('Mexicali - ', 'Mex-')}</div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 20px; font-weight: 700; color: #0f172a;">${cAct}</span>
-                      <span style="font-size: 14px; font-weight: 600; color: ${dif >= 0 ? '#10b981' : '#ef4444'}">${dif > 0 ? '▲ +'+dif : dif < 0 ? '▼ '+dif : '= 0'}</span>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-          
-        </div>
-
       </div>
     `;
 
-    document.body.appendChild(container);
+    // ==========================================
+    // PAGE 1: RESUMEN GENERAL
+    // ==========================================
+    const tAct = dataActual.length; const tPas = dataPasado.length; const difT = tAct - tPas;
+    const htmlPage1 = baseHtml("Dashboard General", `
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; flex: 1;">
+        
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+          <!-- Card Total -->
+          <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9;">
+            <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Volumen Total</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 80px; font-weight: 800; color: #0f172a; line-height: 1;">${tAct}</div>
+              ${diffBadgeBg(difT)}
+            </div>
+            <div style="margin-top: 20px; font-size: 16px; color: #64748B;">Pacientes totales registrados en ${mesLabelActual}. El mes pasado hubo ${tPas}.</div>
+          </div>
+          
+          <!-- Card Origenes Totales -->
+          <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; flex: 1; display: flex; flex-direction: column;">
+            <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Distribución de Origen</h3>
+            <div style="flex: 1; position: relative; min-height: 250px;"><canvas id="chartP1_Donut"></canvas></div>
+          </div>
+        </div>
 
-    // Renderizar Gráficos con Chart.js
-    const ctxDonut = document.getElementById('pdfChartDonut').getContext('2d');
-    
-    const countO = (orig) => dataActual.filter(r => r.origen && r.origen.includes(orig)).length;
-    new Chart(ctxDonut, {
-      type: 'doughnut',
-      data: {
-        labels: ["Cuenta propia", "Doctoralia", "Convenio", "Por asesor"],
-        datasets: [{
-          data: [countO("Cuenta propia"), countO("Doctoralia"), countO("Convenio"), countO("Por asesor")],
-          backgroundColor: ['#3b82f6', '#0ea5e9', '#f97316', '#8b5cf6'],
-          borderWidth: 0,
-          cutout: '75%'
-        }]
-      },
-      options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } } }
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+          <!-- Card Clinicas Comparativa -->
+          <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; flex: 1; display: flex; flex-direction: column;">
+            <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Rendimiento Global por Clínica</h3>
+            <div style="flex: 1; position: relative;"><canvas id="chartP1_Clinicas"></canvas></div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 30px; padding-top: 30px; border-top: 1px solid #f1f5f9;">
+              ${CLINICAS_FULL.map(c => {
+                const cA = dataActual.filter(r => r.clinica === c).length;
+                const cP = dataPasado.filter(r => r.clinica === c).length;
+                return `<div>
+                  <div style="font-size: 14px; color: #64748b; margin-bottom: 8px;">${getClincName(c)}</div>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 24px; font-weight: 800;">${cA}</span>
+                    ${diffBadgeBg(cA - cP)}
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    `);
+
+    // ==========================================
+    // PAGE 2: CUENTA PROPIA & DOCTORALIA
+    // ==========================================
+    const cpAct = dataActual.filter(r => r.origen && r.origen.includes('Cuenta propia')).length;
+    const cpPas = dataPasado.filter(r => r.origen && r.origen.includes('Cuenta propia')).length;
+    const docAct = dataActual.filter(r => r.origen && r.origen.includes('Doctoralia')).length;
+    const docPas = dataPasado.filter(r => r.origen && r.origen.includes('Doctoralia')).length;
+
+    const htmlPage2 = baseHtml("Análisis: Cuenta Propia y Doctoralia", `
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+        <!-- Card CP -->
+        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; border-left: 6px solid #3b82f6;">
+          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Total Cuenta Propia</h3>
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="font-size: 72px; font-weight: 800; color: #0f172a; line-height: 1;">${cpAct}</div>
+            ${diffBadgeBg(cpAct - cpPas)}
+          </div>
+        </div>
+        <!-- Card Doctoralia -->
+        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; border-left: 6px solid #0ea5e9;">
+          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Total Doctoralia</h3>
+          <div style="display: flex; align-items: center; gap: 20px;">
+            <div style="font-size: 72px; font-weight: 800; color: #0f172a; line-height: 1;">${docAct}</div>
+            ${diffBadgeBg(docAct - docPas)}
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; flex: 1;">
+        <!-- Desglose CP Clínicas -->
+        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
+          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Cuenta Propia por Clínica</h3>
+          <div style="flex: 1; position: relative;"><canvas id="chartP2_CP"></canvas></div>
+        </div>
+        
+        <!-- Desglose Doctoralia Clínicas -->
+        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
+          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 30px 0; font-weight: 600; text-transform: uppercase;">Doctoralia por Clínica</h3>
+          <div style="display: flex; flex-direction: column; gap: 20px; flex: 1;">
+            ${CLINICAS_FULL.map(c => {
+              const dA = dataActual.filter(r => r.clinica === c && r.origen && r.origen.includes('Doctoralia')).length;
+              const dP = dataPasado.filter(r => r.clinica === c && r.origen && r.origen.includes('Doctoralia')).length;
+              return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #f8fafc; border-radius: 16px;">
+                  <div style="font-size: 18px; font-weight: 600;">${getClincName(c)}</div>
+                  <div style="display: flex; align-items: center; gap: 24px;">
+                    <div style="text-align: right;">
+                      <div style="font-size: 14px; color: #64748b;">Mes pasado</div>
+                      <div style="font-size: 20px; font-weight: 700; color: #94a3b8;">${dP}</div>
+                    </div>
+                    <div style="text-align: right;">
+                      <div style="font-size: 14px; color: #0ea5e9; font-weight: 600;">Mes actual</div>
+                      <div style="font-size: 28px; font-weight: 800; color: #0f172a;">${dA}</div>
+                    </div>
+                    <div style="width: 100px; text-align: right;">${diffBadgeBg(dA - dP)}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `);
+
+    // ==========================================
+    // PAGE 3: ASESORES
+    // ==========================================
+    const todosAsesoresObj = {};
+    dataActual.concat(dataPasado).forEach(r => {
+      if(r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—') todosAsesoresObj[r.asesor] = true;
     });
+    let arrAsesores = Object.keys(todosAsesoresObj).map(a => {
+      const aA = dataActual.filter(r => r.asesor === a).length;
+      const aP = dataPasado.filter(r => r.asesor === a).length;
+      return { nombre: a, act: aA, pas: aP, dif: aA - aP };
+    }).sort((a,b) => b.dif - a.dif); // Ordenar por mayor crecimiento
 
-    const ctxClinicas = document.getElementById('pdfChartClinicas').getContext('2d');
-    const clinicasLabels = ['Tijuana', 'Mex-Obr', 'Mex-VV', 'Ensenada'];
-    const clinicasFull = ['Tijuana', 'Mexicali - Obregón', 'Mexicali - Villa Verde', 'Ensenada'];
-    const actClinicas = clinicasFull.map(c => dataActual.filter(r => r.clinica === c).length);
-    const pasClinicas = clinicasFull.map(c => dataPasado.filter(r => r.clinica === c).length);
+    // Tomaremos top 6 asesores para no desbordar la UI, o hasta 8
+    const topAsesores = arrAsesores.slice(0, 8);
 
-    new Chart(ctxClinicas, {
-      type: 'line',
-      data: {
-        labels: clinicasLabels,
-        datasets: [
-          { 
-            label: mesLabelPasado, data: pasClinicas, borderColor: '#cbd5e1', 
-            backgroundColor: '#cbd5e1', tension: 0.4, borderDash: [5, 5]
+    const htmlPage3 = baseHtml("Rendimiento por Asesor", `
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; flex: 1;">
+        ${topAsesores.map(as => {
+          return `
+            <div style="background: #fff; border-radius: 24px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
+              <h3 style="font-size: 20px; color: #0f172a; margin: 0 0 16px 0; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 16px;">${as.nombre}</h3>
+              
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <div>
+                  <div style="font-size: 13px; color: #64748b; text-transform: uppercase;">Total Asistencias</div>
+                  <div style="font-size: 36px; font-weight: 800; color: #0f172a;">${as.act}</div>
+                </div>
+                <div>${diffBadgeBg(as.dif)}</div>
+              </div>
+
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Desglose por clínica</div>
+                ${CLINICAS_FULL.map(c => {
+                  const cA = dataActual.filter(r => r.asesor === as.nombre && r.clinica === c).length;
+                  const cP = dataPasado.filter(r => r.asesor === as.nombre && r.clinica === c).length;
+                  if(cA === 0 && cP === 0) return '';
+                  return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-radius: 8px;">
+                      <div style="font-size: 14px; font-weight: 500; color: #334155;">${getClincName(c)}</div>
+                      <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 16px; font-weight: 700;">${cA}</span>
+                        <span style="font-size: 13px;">${diffBadge(cA - cP)}</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+        ${topAsesores.length === 0 ? '<div style="font-size: 20px; color:#64748b;">No hay asesores registrados en este periodo.</div>' : ''}
+      </div>
+    `);
+
+    // ==========================================
+    // PAGE 4: TENDENCIA DIARIA
+    // ==========================================
+    const htmlPage4 = baseHtml("Tendencia Diaria por Fechas", `
+      <div style="background: #fff; border-radius: 30px; padding: 50px; box-shadow: 0 10px 40px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; flex: 1; display: flex; flex-direction: column;">
+        <h3 style="font-size: 22px; color: #0f172a; margin: 0 0 10px 0; font-weight: 700;">Asistencias por Día (Mes a Mes)</h3>
+        <p style="color: #64748b; font-size: 16px; margin: 0 0 40px 0;">Compara el ritmo de asistencia diario a lo largo del mes completo.</p>
+        <div style="flex: 1; position: relative; width: 100%; min-height: 400px;">
+          <canvas id="chartP4_Dias"></canvas>
+        </div>
+      </div>
+    `);
+
+    const pages = [htmlPage1, htmlPage2, htmlPage3, htmlPage4];
+
+    // GENERAR PDF ITERANDO PAGINAS
+    for(let i = 0; i < pages.length; i++) {
+      btn.innerHTML = `Generando Hoja ${i+1} de 4...`;
+      
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.top = '-9999px';
+      container.style.left = '-9999px';
+      container.innerHTML = pages[i];
+      document.body.appendChild(container);
+
+      // Render Charts for specific pages
+      if(i === 0) {
+        const countO = (d, orig) => d.filter(r => r.origen && r.origen.includes(orig)).length;
+        new Chart(document.getElementById('chartP1_Donut').getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: ["Cuenta propia", "Doctoralia", "Convenio", "Por asesor"],
+            datasets: [{
+              data: [countO(dataActual,"Cuenta propia"), countO(dataActual,"Doctoralia"), countO(dataActual,"Convenio"), countO(dataActual,"Por asesor")],
+              backgroundColor: ['#3b82f6', '#0ea5e9', '#f97316', '#8b5cf6'],
+              borderWidth: 0, cutout: '70%'
+            }]
           },
-          { 
-            label: mesLabelActual, data: actClinicas, borderColor: '#0ea5e9', 
-            backgroundColor: 'rgba(14, 165, 233, 0.1)', fill: true, tension: 0.4 
-          }
-        ]
-      },
-      options: { 
-        responsive: true, maintainAspectRatio: false, animation: false,
-        plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 12, usePointStyle: true } } },
-        scales: { 
-          x: { grid: { display: false } }, 
-          y: { display: false, min: 0 } 
-        }
+          options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'right', labels: { font: { size: 16, family: 'Inter' }, padding: 20 } } } }
+        });
+
+        const actC = CLINICAS_FULL.map(c => dataActual.filter(r => r.clinica === c).length);
+        const pasC = CLINICAS_FULL.map(c => dataPasado.filter(r => r.clinica === c).length);
+        new Chart(document.getElementById('chartP1_Clinicas').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: CLINICAS_FULL.map(getClincName),
+            datasets: [
+              { label: mesLabelPasado, data: pasC, backgroundColor: '#cbd5e1', borderRadius: 8 },
+              { label: mesLabelActual, data: actC, backgroundColor: '#0f172a', borderRadius: 8 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { grid: { display: false } } } }
+        });
       }
-    });
 
-    // Esperar un momento
-    await new Promise(r => setTimeout(r, 1000));
+      if (i === 1) {
+        const actCP = CLINICAS_FULL.map(c => dataActual.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length);
+        const pasCP = CLINICAS_FULL.map(c => dataPasado.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length);
+        new Chart(document.getElementById('chartP2_CP').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: CLINICAS_FULL.map(getClincName),
+            datasets: [
+              { label: mesLabelPasado, data: pasCP, backgroundColor: '#93c5fd', borderRadius: 6 },
+              { label: mesLabelActual, data: actCP, backgroundColor: '#3b82f6', borderRadius: 6 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { grid: { display: false } } } }
+        });
+      }
 
-    const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false });
-    const imgData = canvas.toDataURL('image/png');
+      if (i === 3) {
+        const dias = Array.from({length: 31}, (_, i) => i + 1);
+        const getDayCount = (data, d) => data.filter(r => {
+           if(!r.fecha) return false;
+           const parts = r.fecha.split('-'); // YYYY-MM-DD
+           if(parts.length < 3) return false;
+           return parseInt(parts[2], 10) === d;
+        }).length;
+        
+        const trendAct = dias.map(d => getDayCount(dataActual, d));
+        const trendPas = dias.map(d => getDayCount(dataPasado, d));
+        
+        new Chart(document.getElementById('chartP4_Dias').getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: dias,
+            datasets: [
+              { label: mesLabelPasado, data: trendPas, borderColor: '#cbd5e1', backgroundColor: 'transparent', tension: 0.4, borderDash: [5,5], pointRadius: 3 },
+              { label: mesLabelActual, data: trendAct, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.1)', fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#0ea5e9' }
+            ]
+          },
+          options: { 
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { position: 'top', align: 'end', labels: { font: { size: 16 } } } },
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+          }
+        });
+      }
 
-    const { jsPDF } = window.jspdf;
-    const pdfCustom = new jsPDF({ orientation: 'landscape', unit: 'px', format: [1600, 950] });
-    pdfCustom.addImage(imgData, 'PNG', 0, 0, 1600, 950);
+      await new Promise(r => setTimeout(r, 800)); // wait for rendering
+      const canvas = await html2canvas(container.children[0], { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      
+      if(i > 0) pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, 0, PAGE_W, PAGE_H);
+      
+      document.body.removeChild(container);
+    }
     
-    pdfCustom.save(`Dashboard_Comparativo_${mesLabelActual}_${y_yr}.pdf`);
+    pdf.save(`Dashboard_Análisis_Comparativo_${mesLabelActual}_${y_yr}.pdf`);
 
-    document.body.removeChild(container);
-    
   } catch(e) {
     console.error(e);
     alert("Error al generar PDF: " + e.message);
