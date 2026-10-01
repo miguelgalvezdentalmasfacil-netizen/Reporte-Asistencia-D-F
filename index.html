@@ -719,6 +719,8 @@ async function cargarCitas() {
     const currentSel = select.value;
     select.innerHTML = '';
     const mesesSet = new Set();
+    const now = new Date();
+    mesesSet.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
     citasData.forEach(c => {
       if(c.Fecha && c.Fecha.length >= 7) {
         mesesSet.add(c.Fecha.substring(0,7)); // YYYY-MM
@@ -1357,6 +1359,8 @@ function actualizarMesesPdf() {
     return;
   }
   const months = new Set();
+  const now = new Date();
+  months.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
   registros.forEach(r => {
     if (r.fecha) months.add(r.fecha.substring(0, 7));
   });
