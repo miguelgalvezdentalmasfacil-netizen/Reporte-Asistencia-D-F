@@ -58,8 +58,8 @@ document.getElementById('btnComparePdf').onclick = async () => {
         <!-- Main Content -->
         <div style="flex: 1; padding: 50px 70px; display: flex; flex-direction: column; box-sizing: border-box;">
           <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px;">
-            <div>
-              <div style="font-size: 18px; color: #64748B; margin-bottom: 8px;">Dental Más Fácil • Análisis Mensual</div>
+            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
+              <img src="logo-dental-mas-facil.png" style="height: 48px; object-fit: contain; margin-bottom: 8px;" crossorigin="anonymous">
               <h1 style="font-size: 42px; font-weight: 800; margin: 0; letter-spacing: -1px; color: #0f172a;">${title}</h1>
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
