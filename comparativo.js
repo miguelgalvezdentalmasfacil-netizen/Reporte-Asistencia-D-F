@@ -130,48 +130,58 @@ document.getElementById('btnComparePdf').onclick = async () => {
     const cpPas = dataPasado.filter(r => r.origen && r.origen.includes('Cuenta propia')).length;
     const docAct = dataActual.filter(r => r.origen && r.origen.includes('Doctoralia')).length;
     const docPas = dataPasado.filter(r => r.origen && r.origen.includes('Doctoralia')).length;
+    const convAct = dataActual.filter(r => r.origen && r.origen.includes('Convenio')).length;
+    const convPas = dataPasado.filter(r => r.origen && r.origen.includes('Convenio')).length;
 
-    const htmlPage2 = baseHtml("Análisis: Cuenta Propia y Doctoralia", `
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+    const htmlPage2 = baseHtml("Análisis: Tráfico Orgánico y Convenios", `
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 24px;">
         <!-- Card CP -->
-        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; border-left: 6px solid #3b82f6;">
-          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Total Cuenta Propia</h3>
-          <div style="display: flex; align-items: center; gap: 20px;">
-            <div style="font-size: 72px; font-weight: 800; color: #0f172a; line-height: 1;">${cpAct}</div>
+        <div style="background: #fff; border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; border-left: 6px solid #3b82f6;">
+          <h3 style="font-size: 16px; color: #64748b; margin: 0 0 16px 0; font-weight: 600; text-transform: uppercase;">Total Cuenta Propia</h3>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 64px; font-weight: 800; color: #0f172a; line-height: 1;">${cpAct}</div>
             ${diffBadgeBg(cpAct - cpPas)}
           </div>
         </div>
         <!-- Card Doctoralia -->
-        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; border-left: 6px solid #0ea5e9;">
-          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Total Doctoralia</h3>
-          <div style="display: flex; align-items: center; gap: 20px;">
-            <div style="font-size: 72px; font-weight: 800; color: #0f172a; line-height: 1;">${docAct}</div>
+        <div style="background: #fff; border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; border-left: 6px solid #0ea5e9;">
+          <h3 style="font-size: 16px; color: #64748b; margin: 0 0 16px 0; font-weight: 600; text-transform: uppercase;">Total Doctoralia</h3>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 64px; font-weight: 800; color: #0f172a; line-height: 1;">${docAct}</div>
             ${diffBadgeBg(docAct - docPas)}
+          </div>
+        </div>
+        <!-- Card Convenio -->
+        <div style="background: #fff; border-radius: 20px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; border-left: 6px solid #f97316;">
+          <h3 style="font-size: 16px; color: #64748b; margin: 0 0 16px 0; font-weight: 600; text-transform: uppercase;">Total Convenio</h3>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 64px; font-weight: 800; color: #0f172a; line-height: 1;">${convAct}</div>
+            ${diffBadgeBg(convAct - convPas)}
           </div>
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; flex: 1;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; flex: 1;">
         <!-- Desglose CP Clínicas -->
-        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
-          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 30px 0; font-weight: 600; text-transform: uppercase;">Cuenta Propia por Clínica</h3>
-          <div style="display: flex; flex-direction: column; gap: 20px; flex: 1;">
+        <div style="background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
+          <h3 style="font-size: 16px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Cuenta Propia por Clínica</h3>
+          <div style="display: flex; flex-direction: column; gap: 16px; flex: 1;">
             ${CLINICAS_FULL.map(c => {
               const cpA = dataActual.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length;
               const cpP = dataPasado.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length;
               return `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #f8fafc; border-radius: 16px;">
-                  <div style="font-size: 18px; font-weight: 600;">${getClincName(c)}</div>
-                  <div style="display: flex; align-items: center; gap: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 12px; background: #f8fafc; border-radius: 12px;">
+                  <div style="font-size: 16px; font-weight: 600; width:80px; line-height:1.2;">${getClincName(c)}</div>
+                  <div style="display: flex; align-items: center; gap: 12px; flex:1; justify-content: flex-end;">
                     <div style="text-align: right;">
-                      <div style="font-size: 14px; color: #64748b;">Mes pasado</div>
-                      <div style="font-size: 20px; font-weight: 700; color: #94a3b8;">${cpP}</div>
+                      <div style="font-size: 12px; color: #64748b;">Mes pasado</div>
+                      <div style="font-size: 18px; font-weight: 700; color: #94a3b8;">${cpP}</div>
                     </div>
                     <div style="text-align: right;">
-                      <div style="font-size: 14px; color: #3b82f6; font-weight: 600;">Mes actual</div>
-                      <div style="font-size: 28px; font-weight: 800; color: #0f172a;">${cpA}</div>
+                      <div style="font-size: 12px; color: #3b82f6; font-weight: 600;">Mes actual</div>
+                      <div style="font-size: 24px; font-weight: 800; color: #0f172a;">${cpA}</div>
                     </div>
-                    <div style="width: 100px; text-align: right;">${diffBadgeBg(cpA - cpP)}</div>
+                    <div style="text-align: right;">${diffBadgeBg(cpA - cpP)}</div>
                   </div>
                 </div>
               `;
@@ -180,25 +190,52 @@ document.getElementById('btnComparePdf').onclick = async () => {
         </div>
         
         <!-- Desglose Doctoralia Clínicas -->
-        <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
-          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 30px 0; font-weight: 600; text-transform: uppercase;">Doctoralia por Clínica</h3>
-          <div style="display: flex; flex-direction: column; gap: 20px; flex: 1;">
+        <div style="background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
+          <h3 style="font-size: 16px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Doctoralia por Clínica</h3>
+          <div style="display: flex; flex-direction: column; gap: 16px; flex: 1;">
             ${CLINICAS_FULL.map(c => {
               const dA = dataActual.filter(r => r.clinica === c && r.origen && r.origen.includes('Doctoralia')).length;
               const dP = dataPasado.filter(r => r.clinica === c && r.origen && r.origen.includes('Doctoralia')).length;
               return `
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #f8fafc; border-radius: 16px;">
-                  <div style="font-size: 18px; font-weight: 600;">${getClincName(c)}</div>
-                  <div style="display: flex; align-items: center; gap: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 12px; background: #f8fafc; border-radius: 12px;">
+                  <div style="font-size: 16px; font-weight: 600; width:80px; line-height:1.2;">${getClincName(c)}</div>
+                  <div style="display: flex; align-items: center; gap: 12px; flex:1; justify-content: flex-end;">
                     <div style="text-align: right;">
-                      <div style="font-size: 14px; color: #64748b;">Mes pasado</div>
-                      <div style="font-size: 20px; font-weight: 700; color: #94a3b8;">${dP}</div>
+                      <div style="font-size: 12px; color: #64748b;">Mes pasado</div>
+                      <div style="font-size: 18px; font-weight: 700; color: #94a3b8;">${dP}</div>
                     </div>
                     <div style="text-align: right;">
-                      <div style="font-size: 14px; color: #0ea5e9; font-weight: 600;">Mes actual</div>
-                      <div style="font-size: 28px; font-weight: 800; color: #0f172a;">${dA}</div>
+                      <div style="font-size: 12px; color: #0ea5e9; font-weight: 600;">Mes actual</div>
+                      <div style="font-size: 24px; font-weight: 800; color: #0f172a;">${dA}</div>
                     </div>
-                    <div style="width: 100px; text-align: right;">${diffBadgeBg(dA - dP)}</div>
+                    <div style="text-align: right;">${diffBadgeBg(dA - dP)}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Desglose Convenio Clínicas -->
+        <div style="background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
+          <h3 style="font-size: 16px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Convenio por Clínica</h3>
+          <div style="display: flex; flex-direction: column; gap: 16px; flex: 1;">
+            ${CLINICAS_FULL.map(c => {
+              const cvA = dataActual.filter(r => r.clinica === c && r.origen && r.origen.includes('Convenio')).length;
+              const cvP = dataPasado.filter(r => r.clinica === c && r.origen && r.origen.includes('Convenio')).length;
+              return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 12px; background: #f8fafc; border-radius: 12px;">
+                  <div style="font-size: 16px; font-weight: 600; width:80px; line-height:1.2;">${getClincName(c)}</div>
+                  <div style="display: flex; align-items: center; gap: 12px; flex:1; justify-content: flex-end;">
+                    <div style="text-align: right;">
+                      <div style="font-size: 12px; color: #64748b;">Mes pasado</div>
+                      <div style="font-size: 18px; font-weight: 700; color: #94a3b8;">${cvP}</div>
+                    </div>
+                    <div style="text-align: right;">
+                      <div style="font-size: 12px; color: #f97316; font-weight: 600;">Mes actual</div>
+                      <div style="font-size: 24px; font-weight: 800; color: #0f172a;">${cvA}</div>
+                    </div>
+                    <div style="text-align: right;">${diffBadgeBg(cvA - cvP)}</div>
                   </div>
                 </div>
               `;
