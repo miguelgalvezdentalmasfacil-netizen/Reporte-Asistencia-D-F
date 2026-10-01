@@ -25,7 +25,7 @@ document.getElementById('btnComparePdf').onclick = async () => {
     const mesLabelPasado = monthNames[mes-1];
 
     const PAGE_W = 1600;
-    const PAGE_H = 950;
+    const PAGE_H = 1130;
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [PAGE_W, PAGE_H] });
 
@@ -45,7 +45,7 @@ document.getElementById('btnComparePdf').onclick = async () => {
     const getClincName = (c) => c.replace('Mexicali - ', 'Mex-');
 
     const baseHtml = (title, content) => `
-      <div style="width: 1600px; height: 950px; background: #f8fafc; font-family: 'Inter', sans-serif; display: flex; color: #0f172a; box-sizing: border-box;">
+      <div style="width: 1600px; height: 1130px; background: #f8fafc; font-family: 'Inter', sans-serif; display: flex; color: #0f172a; box-sizing: border-box;">
         <!-- Sidebar Falso -->
         <div style="width: 80px; background: #ffffff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; padding: 40px 0; gap: 24px;">
           <div style="width: 48px; height: 48px; border-radius: 12px; background: #0f172a; display:flex; align-items:center; justify-content:center; margin-bottom: 20px;">
@@ -154,8 +154,29 @@ document.getElementById('btnComparePdf').onclick = async () => {
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; flex: 1;">
         <!-- Desglose CP Clínicas -->
         <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; display: flex; flex-direction: column;">
-          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Cuenta Propia por Clínica</h3>
-          <div style="flex: 1; position: relative;"><canvas id="chartP2_CP"></canvas></div>
+          <h3 style="font-size: 18px; color: #64748b; margin: 0 0 30px 0; font-weight: 600; text-transform: uppercase;">Cuenta Propia por Clínica</h3>
+          <div style="display: flex; flex-direction: column; gap: 20px; flex: 1;">
+            ${CLINICAS_FULL.map(c => {
+              const cpA = dataActual.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length;
+              const cpP = dataPasado.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length;
+              return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #f8fafc; border-radius: 16px;">
+                  <div style="font-size: 18px; font-weight: 600;">${getClincName(c)}</div>
+                  <div style="display: flex; align-items: center; gap: 24px;">
+                    <div style="text-align: right;">
+                      <div style="font-size: 14px; color: #64748b;">Mes pasado</div>
+                      <div style="font-size: 20px; font-weight: 700; color: #94a3b8;">${cpP}</div>
+                    </div>
+                    <div style="text-align: right;">
+                      <div style="font-size: 14px; color: #3b82f6; font-weight: 600;">Mes actual</div>
+                      <div style="font-size: 28px; font-weight: 800; color: #0f172a;">${cpA}</div>
+                    </div>
+                    <div style="width: 100px; text-align: right;">${diffBadgeBg(cpA - cpP)}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
         </div>
         
         <!-- Desglose Doctoralia Clínicas -->
@@ -299,21 +320,7 @@ document.getElementById('btnComparePdf').onclick = async () => {
         });
       }
 
-      if (i === 1) {
-        const actCP = CLINICAS_FULL.map(c => dataActual.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length);
-        const pasCP = CLINICAS_FULL.map(c => dataPasado.filter(r => r.clinica === c && r.origen && r.origen.includes('Cuenta propia')).length);
-        new Chart(document.getElementById('chartP2_CP').getContext('2d'), {
-          type: 'bar',
-          data: {
-            labels: CLINICAS_FULL.map(getClincName),
-            datasets: [
-              { label: mesLabelPasado, data: pasCP, backgroundColor: '#93c5fd', borderRadius: 6 },
-              { label: mesLabelActual, data: actCP, backgroundColor: '#3b82f6', borderRadius: 6 }
-            ]
-          },
-          options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { grid: { display: false } } } }
-        });
-      }
+
 
       if (i === 3) {
         const dias = Array.from({length: 31}, (_, i) => i + 1);
@@ -345,7 +352,13 @@ document.getElementById('btnComparePdf').onclick = async () => {
       }
 
       await new Promise(r => setTimeout(r, 800)); // wait for rendering
-      const canvas = await html2canvas(container.children[0], { scale: 2, useCORS: true, logging: false });
+      const canvas = await html2canvas(container.children[0], { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        windowWidth: PAGE_W,
+        windowHeight: PAGE_H
+      });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       
       if(i > 0) pdf.addPage();
