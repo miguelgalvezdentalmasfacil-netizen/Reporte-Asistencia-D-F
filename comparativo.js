@@ -313,11 +313,74 @@ document.getElementById('btnComparePdf').onclick = async () => {
       </div>
     `);
 
-    const pages = [htmlPage1, htmlPage2, htmlPage3, htmlPage4];
+    // ==========================================
+    // PAGE 5: INGRESOS
+    // ==========================================
+    const formatMoney = (n) => '$' + n.toLocaleString('en-US');
+    const getRevenue = (data) => data.filter(r => !(r.origen && r.origen.includes('Convenio'))).length * 350;
+    
+    const revAct = getRevenue(dataActual);
+    const revPas = getRevenue(dataPasado);
+    
+    const htmlPage5 = baseHtml("Análisis Financiero: Ingresos", `
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 30px; flex: 1;">
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+          <!-- Card Total -->
+          <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9;">
+            <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Ingreso Total Estimado</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 64px; font-weight: 800; color: #10b981; line-height: 1;">${formatMoney(revAct)}</div>
+            </div>
+            <div style="margin-top: 20px; display: inline-block;">${diffBadgeBg(revAct - revPas)}</div>
+            <div style="margin-top: 20px; font-size: 15px; color: #94a3b8; line-height: 1.4;">*Calculado a $350 MXN por paciente. Excluye orígenes de Convenio ($0).</div>
+          </div>
+          <!-- Card Origenes -->
+          <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; flex: 1; display: flex; flex-direction: column;">
+            <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Ingresos por Origen</h3>
+            <div style="flex: 1; position: relative; min-height: 250px;"><canvas id="chartP5_Donut"></canvas></div>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+          <!-- Card Clinicas -->
+          <div style="background: #fff; border-radius: 24px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid #f1f5f9; flex: 1; display: flex; flex-direction: column;">
+            <h3 style="font-size: 18px; color: #64748b; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase;">Ingresos por Clínica</h3>
+            <div style="flex: 1; position: relative;"><canvas id="chartP5_Clinicas"></canvas></div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 30px; padding-top: 30px; border-top: 1px solid #f1f5f9;">
+              ${CLINICAS_FULL.map(c => {
+                const cA = getRevenue(dataActual.filter(r => r.clinica === c));
+                const cP = getRevenue(dataPasado.filter(r => r.clinica === c));
+                return \`<div>
+                  <div style="font-size: 14px; color: #64748b; margin-bottom: 8px;">\${getClincName(c)}</div>
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <span style="font-size: 24px; font-weight: 800; color:#0f172a;">\${formatMoney(cA)}</span>
+                  </div>
+                  <div>\${diffBadgeBg(cA - cP)}</div>
+                </div>\`;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    // ==========================================
+    // PAGE 6: TENDENCIA INGRESOS
+    // ==========================================
+    const htmlPage6 = baseHtml("Tendencia de Ingresos Diarios", `
+      <div style="background: #fff; border-radius: 30px; padding: 50px; box-shadow: 0 10px 40px rgba(0,0,0,0.04); border: 1px solid #f1f5f9; flex: 1; display: flex; flex-direction: column;">
+        <h3 style="font-size: 22px; color: #0f172a; margin: 0 0 10px 0; font-weight: 700;">Ingresos Generados por Día (Mes a Mes)</h3>
+        <p style="color: #64748b; font-size: 16px; margin: 0 0 40px 0;">Compara el flujo de caja estimado de valoraciones a lo largo del mes.</p>
+        <div style="flex: 1; position: relative; width: 100%; min-height: 400px;">
+          <canvas id="chartP6_Dias"></canvas>
+        </div>
+      </div>
+    `);
+
+    const pages = [htmlPage1, htmlPage2, htmlPage3, htmlPage4, htmlPage5, htmlPage6];
 
     // GENERAR PDF ITERANDO PAGINAS
     for(let i = 0; i < pages.length; i++) {
-      btn.innerHTML = `Generando Hoja ${i+1} de 4...`;
+      btn.innerHTML = `Generando Hoja ${i+1} de ${pages.length}...`;
       
       const container = document.createElement('div');
       container.style.position = 'absolute';
@@ -378,6 +441,65 @@ document.getElementById('btnComparePdf').onclick = async () => {
             datasets: [
               { label: mesLabelPasado, data: trendPas, borderColor: '#cbd5e1', backgroundColor: 'transparent', tension: 0.4, borderDash: [5,5], pointRadius: 3 },
               { label: mesLabelActual, data: trendAct, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,0.1)', fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#0ea5e9' }
+            ]
+          },
+          options: { 
+            responsive: true, maintainAspectRatio: false, animation: false,
+            plugins: { legend: { position: 'top', align: 'end', labels: { font: { size: 16 } } } },
+            scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
+          }
+        });
+      }
+      
+      if (i === 4) {
+        const countORev = (d, orig) => getRevenue(d.filter(r => r.origen && r.origen.includes(orig)));
+        new Chart(document.getElementById('chartP5_Donut').getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: ["Cuenta propia", "Doctoralia", "Por asesor"],
+            datasets: [{
+              data: [countORev(dataActual,"Cuenta propia"), countORev(dataActual,"Doctoralia"), countORev(dataActual,"Por asesor")],
+              backgroundColor: ['#3b82f6', '#0ea5e9', '#8b5cf6'],
+              borderWidth: 0, cutout: '70%'
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'right', labels: { font: { size: 16, family: 'Inter' }, padding: 20 } } } }
+        });
+
+        const actCRev = CLINICAS_FULL.map(c => getRevenue(dataActual.filter(r => r.clinica === c)));
+        const pasCRev = CLINICAS_FULL.map(c => getRevenue(dataPasado.filter(r => r.clinica === c)));
+        new Chart(document.getElementById('chartP5_Clinicas').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: CLINICAS_FULL.map(getClincName),
+            datasets: [
+              { label: mesLabelPasado, data: pasCRev, backgroundColor: '#cbd5e1', borderRadius: 8 },
+              { label: mesLabelActual, data: actCRev, backgroundColor: '#10b981', borderRadius: 8 }
+            ]
+          },
+          options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { grid: { display: false } } } }
+        });
+      }
+
+      if (i === 5) {
+        const dias = Array.from({length: 31}, (_, i) => i + 1);
+        const getDayRev = (data, d) => getRevenue(data.filter(r => {
+           if(!r.fecha) return false;
+           const parts = r.fecha.split('-');
+           if(parts.length < 3) return false;
+           return parseInt(parts[2], 10) === d;
+        }));
+        
+        const trendActRev = dias.map(d => getDayRev(dataActual, d));
+        const trendPasRev = dias.map(d => getDayRev(dataPasado, d));
+        
+        new Chart(document.getElementById('chartP6_Dias').getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: dias,
+            datasets: [
+              { label: mesLabelPasado, data: trendPasRev, borderColor: '#cbd5e1', backgroundColor: 'transparent', tension: 0.4, borderDash: [5,5], pointRadius: 3 },
+              { label: mesLabelActual, data: trendActRev, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#10b981' }
             ]
           },
           options: { 
