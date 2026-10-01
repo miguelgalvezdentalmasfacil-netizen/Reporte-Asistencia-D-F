@@ -349,13 +349,13 @@ document.getElementById('btnComparePdf').onclick = async () => {
               ${CLINICAS_FULL.map(c => {
                 const cA = getRevenue(dataActual.filter(r => r.clinica === c));
                 const cP = getRevenue(dataPasado.filter(r => r.clinica === c));
-                return \`<div>
-                  <div style="font-size: 14px; color: #64748b; margin-bottom: 8px;">\${getClincName(c)}</div>
+                return `<div>
+                  <div style="font-size: 14px; color: #64748b; margin-bottom: 8px;">${getClincName(c)}</div>
                   <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                    <span style="font-size: 24px; font-weight: 800; color:#0f172a;">\${formatMoney(cA)}</span>
+                    <span style="font-size: 24px; font-weight: 800; color:#0f172a;">${formatMoney(cA)}</span>
                   </div>
-                  <div>\${diffBadgeBg(cA - cP)}</div>
-                </div>\`;
+                  <div>${diffBadgeBg(cA - cP)}</div>
+                </div>`;
               }).join('')}
             </div>
           </div>
