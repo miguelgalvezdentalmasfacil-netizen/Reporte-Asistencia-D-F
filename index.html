@@ -675,7 +675,8 @@ tabCitas.addEventListener('click', () => {
 
 // ---------- header date ----------
 document.getElementById('fechaHoy').textContent = new Date().toLocaleDateString('es-MX', { weekday:'long', day:'numeric', month:'long' });
-document.getElementById('fecha').valueAsDate = new Date();
+  const d = new Date();
+  document.getElementById('fecha').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0,10);
 
 // ---------- conexión con Apps Script ----------
 function setConnStatus(state, text){
@@ -1152,7 +1153,7 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
     id: Date.now(),
     nombre, clinica, asesor: asesor || 'Sin asignar',
     paquete: selPaquete, origen: finalOrigen,
-    fecha: fecha || new Date().toISOString().slice(0,10)
+    fecha: fecha || new Date(new Date().getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0,10)
   };
   registros.unshift(nuevoRegistro);
   guardarEnSheets(nuevoRegistro);
@@ -1161,7 +1162,8 @@ document.getElementById('regForm').addEventListener('submit', (e) => {
   document.getElementById('regForm').reset();
   document.getElementById('asesorOtro').style.display = 'none';
   document.getElementById('asesorOtro').value = '';
-  document.getElementById('fecha').valueAsDate = new Date();
+    const d = new Date();
+  document.getElementById('fecha').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0,10);
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   selPaquete = null; selOrigen = [];
 
