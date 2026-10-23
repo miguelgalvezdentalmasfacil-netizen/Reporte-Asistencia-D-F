@@ -1633,24 +1633,52 @@ document.getElementById('btnExportExcel').onclick = () => {
     });
     const totalIngresos = paganCount * 350;
 
-    // Hoja 1: Registro Completo de Pacientes
+    // Cálculos desglosados por Clínica (Total, Cuenta Propia, Por Asesor, Convenio, Doctoralia)
+    const statsPorClinica = {};
+    CLINICAS.forEach(c => {
+      const regC = filtered.filter(r => r.clinica === c);
+      const cpC = regC.filter(r => (r.origen || '').includes('Cuenta propia') || !r.asesor || r.asesor === 'Sin asignar');
+      const asesC = regC.filter(r => (r.origen || '').includes('Por asesor') && r.asesor && r.asesor !== 'Sin asignar');
+      const convC = regC.filter(r => (r.origen || '').includes('Convenio'));
+      const docC = regC.filter(r => (r.origen || '').includes('Doctoralia'));
+      const cpSinConvC = cpC.filter(r => !(r.origen || '').includes('Convenio'));
+      statsPorClinica[c] = {
+        total: regC.length,
+        cp: cpC.length,
+        asesor: asesC.length,
+        convenio: convC.length,
+        doctoralia: docC.length,
+        cpInd: cpC.filter(r => r.paquete === 'Individual').length,
+        cpDual: cpC.filter(r => r.paquete === 'Dual').length,
+        cpFam: cpC.filter(r => r.paquete === 'Familiar').length,
+        cpIngreso: cpSinConvC.length * 350
+      };
+    });
+
+    const pctStr = (n) => total > 0 ? `${Math.round((n / total) * 100)}%` : '0%';
+    const pctCpStr = (n) => cp > 0 ? `${Math.round((n / cp) * 100)}%` : '0%';
+
+    // Hoja 1: Registro Completo de Pacientes + Resumen rápido de Cuenta Propia por Clínica al final
     const rowsPacientes = [
       ["DENTAL MÁS FÁCIL — REGISTRO COMPLETO DE ASISTENCIA"],
-      [`Periodo: ${periodLabel}`, `Generado: ${now.toLocaleDateString('es-MX')} ${now.toLocaleTimeString('es-MX')}`, `TOTAL REGISTRADO: ${total} pacientes`],
+      [`Periodo: ${periodLabel}`, `Generado: ${now.toLocaleDateString('es-MX')} ${now.toLocaleTimeString('es-MX')}`, `TOTAL REGISTRADO: ${total} pacientes`, `TOTAL CUENTA PROPIA: ${cp} pacientes`],
       [],
-      ["No.", "Fecha", "Paciente", "Clínica", "Asesor", "Paquete", "Origen", "Ingreso Valoración ($ MXN)"]
+      ["No.", "Fecha", "Paciente", "Clínica", "Asesor", "Tipo de Captación", "Paquete", "Origen Detallado", "Ingreso Valoración ($ MXN)"]
     ];
 
     filtered.forEach((r, idx) => {
-      const esConvenio = (r.origen || '').includes('Convenio');
+      const orig = r.origen || '';
+      const esConvenio = orig.includes('Convenio');
+      const esCuentaPropia = orig.includes('Cuenta propia') || !r.asesor || r.asesor === 'Sin asignar';
       rowsPacientes.push([
         idx + 1,
         r.fecha || '',
         r.nombre || '',
         r.clinica || '',
-        r.asesor || 'Sin asignar',
+        r.asesor && r.asesor !== 'Sin asignar' ? r.asesor : 'Cuenta propia (Clínica)',
+        esCuentaPropia ? 'Cuenta propia' : 'Por asesor',
         r.paquete || '',
-        r.origen || '',
+        orig,
         esConvenio ? 0 : 350
       ]);
     });
@@ -1660,45 +1688,96 @@ document.getElementById('btnExportExcel').onclick = () => {
       "",
       "TOTAL REGISTRADO",
       `${total} pacientes`,
+      `Cuenta propia: ${cp} | Por asesor: ${ases}`,
       `Individual: ${ind} | Dual: ${dual} | Familiar: ${fam}`,
-      `Por asesor: ${ases} | Cuenta propia: ${cp}`,
       `Convenio: ${conv}`,
       `Doctoralia: ${docCount}`,
+      "TOTAL INGRESOS:",
       totalIngresos
     ]);
 
-    // Hoja 2: Resumen del Total Registrado
-    const pctStr = (n) => total > 0 ? `${Math.round((n / total) * 100)}%` : '0%';
+    rowsPacientes.push([]);
+    rowsPacientes.push(["", "DESGLOSE POR CLÍNICA (CUENTA PROPIA VS ASESOR)", "TOTAL CLÍNICA", "CUENTA PROPIA", "POR ASESOR", "CONVENIO", "DOCTORALIA", "% CUENTA PROPIA"]);
+    CLINICAS.forEach(c => {
+      const st = statsPorClinica[c];
+      const pctLocalCp = st.total > 0 ? `${Math.round((st.cp / st.total) * 100)}%` : '0%';
+      rowsPacientes.push(["", c, st.total, st.cp, st.asesor, st.convenio, st.doctoralia, pctLocalCp]);
+    });
+    rowsPacientes.push(["", "TOTAL EN LAS 4 CLÍNICAS", total, cp, ases, conv, docCount, pctStr(cp)]);
+
+    // Hoja 2: Resumen del Total Registrado y Cuenta Propia por Clínica
     const rowsResumen = [
-      ["DENTAL MÁS FÁCIL — RESUMEN DEL TOTAL REGISTRADO"],
+      ["DENTAL MÁS FÁCIL — RESUMEN DEL TOTAL REGISTRADO Y CUENTA PROPIA POR CLÍNICA"],
       [`Periodo: ${periodLabel}`],
       [],
       ["INDICADOR GENERAL", "CANTIDAD", "PORCENTAJE / DETALLE"],
       ["TOTAL DE PACIENTES REGISTRADOS", total, "100%"],
+      ["Total por Cuenta Propia (Todas las clínicas)", cp, pctStr(cp)],
+      ["Total por Asesor (Todas las clínicas)", ases, pctStr(ases)],
       ["Pacientes con Pago de Valoración ($350)", paganCount, pctStr(paganCount)],
       ["Pacientes por Convenio ($0)", conv, pctStr(conv)],
       ["INGRESO TOTAL POR VALORACIONES ($ MXN)", totalIngresos, `$${totalIngresos.toLocaleString('es-MX')} MXN`],
       [],
-      ["TOTAL REGISTRADO POR CLÍNICA", "PACIENTES", "PORCENTAJE"]
+      ["CUENTA PROPIA POR CADA CLÍNICA (DETALLE)", "CUENTA PROPIA", "% DE CUENTA PROPIA", "INDIVIDUAL (CP)", "DUAL (CP)", "FAMILIAR (CP)", "INGRESO CUENTA PROPIA ($ MXN)"]
     ];
 
+    let sumCpIngresos = 0;
     CLINICAS.forEach(c => {
-      const cnt = filtered.filter(r => r.clinica === c).length;
-      rowsResumen.push([c, cnt, pctStr(cnt)]);
+      const st = statsPorClinica[c];
+      sumCpIngresos += st.cpIngreso;
+      rowsResumen.push([
+        c,
+        st.cp,
+        pctCpStr(st.cp),
+        st.cpInd,
+        st.cpDual,
+        st.cpFam,
+        st.cpIngreso
+      ]);
     });
-    rowsResumen.push(["TOTAL CLÍNICAS", total, "100%"]);
+    rowsResumen.push([
+      "TOTAL CUENTA PROPIA",
+      cp,
+      "100%",
+      CLINICAS.reduce((acc, c) => acc + statsPorClinica[c].cpInd, 0),
+      CLINICAS.reduce((acc, c) => acc + statsPorClinica[c].cpDual, 0),
+      CLINICAS.reduce((acc, c) => acc + statsPorClinica[c].cpFam, 0),
+      sumCpIngresos
+    ]);
     rowsResumen.push([]);
 
-    rowsResumen.push(["TOTAL REGISTRADO POR ASESOR", "PACIENTES", "PORCENTAJE"]);
-    const countsAsesorMap = {};
-    filtered.forEach(r => {
-      const a = (r.asesor && r.asesor !== 'Sin asignar') ? r.asesor : 'Sin asignar (Cuenta propia)';
-      countsAsesorMap[a] = (countsAsesorMap[a] || 0) + 1;
+    rowsResumen.push(["COMPARATIVA GENERAL POR CLÍNICA", "TOTAL REGISTRADO", "CUENTA PROPIA", "POR ASESOR", "CONVENIO", "DOCTORALIA", "% DEL TOTAL GENERAL"]);
+    CLINICAS.forEach(c => {
+      const st = statsPorClinica[c];
+      rowsResumen.push([c, st.total, st.cp, st.asesor, st.convenio, st.doctoralia, pctStr(st.total)]);
     });
-    Object.keys(countsAsesorMap).sort((a, b) => countsAsesorMap[b] - countsAsesorMap[a]).forEach(a => {
-      rowsResumen.push([a, countsAsesorMap[a], pctStr(countsAsesorMap[a])]);
+    rowsResumen.push(["TOTAL CLÍNICAS", total, cp, ases, conv, docCount, "100%"]);
+    rowsResumen.push([]);
+
+    rowsResumen.push(["TOTAL REGISTRADO POR ASESOR Y CLÍNICA", "TOTAL PACIENTES", ...CLINICAS, "% DEL TOTAL"]);
+    const asesoresUnicos = [...new Set(filtered.filter(r => r.asesor && r.asesor !== 'Sin asignar').map(r => r.asesor))];
+    asesoresUnicos.sort((a, b) => {
+      const cntA = filtered.filter(r => r.asesor === a).length;
+      const cntB = filtered.filter(r => r.asesor === b).length;
+      return cntB - cntA;
+    }).forEach(a => {
+      const totalA = filtered.filter(r => r.asesor === a).length;
+      const porClinicaA = CLINICAS.map(c => filtered.filter(r => r.asesor === a && r.clinica === c).length);
+      rowsResumen.push([a, totalA, ...porClinicaA, pctStr(totalA)]);
     });
-    rowsResumen.push(["TOTAL", total, "100%"]);
+    // Fila de Cuenta Propia en la misma tabla cruzada para comparar directo
+    rowsResumen.push([
+      "Sin asesor (Cuenta Propia de Clínica)",
+      cp,
+      ...CLINICAS.map(c => statsPorClinica[c].cp),
+      pctStr(cp)
+    ]);
+    rowsResumen.push([
+      "TOTAL GENERAL",
+      total,
+      ...CLINICAS.map(c => statsPorClinica[c].total),
+      "100%"
+    ]);
     rowsResumen.push([]);
 
     rowsResumen.push(["TOTAL REGISTRADO POR PAQUETE", "PACIENTES", "PORCENTAJE"]);
@@ -1714,12 +1793,54 @@ document.getElementById('btnExportExcel').onclick = () => {
     rowsResumen.push(["Convenio", conv, pctStr(conv)]);
     rowsResumen.push(["Doctoralia", docCount, pctStr(docCount)]);
 
+    // Hoja 3: Cuenta Propia por Clínica (Resumen + Listado exclusivo de pacientes de Cuenta Propia)
+    const rowsCuentaPropia = [
+      ["DENTAL MÁS FÁCIL — REPORTE DE CUENTA PROPIA POR CLÍNICA"],
+      [`Periodo: ${periodLabel}`, `Total Cuenta Propia: ${cp} pacientes`],
+      [],
+      ["CLÍNICA / SUCURSAL", "PACIENTES CUENTA PROPIA", "% DEL TOTAL CUENTA PROPIA", "INDIVIDUAL", "DUAL", "FAMILIAR", "INGRESO ($ MXN)"]
+    ];
+    CLINICAS.forEach(c => {
+      const st = statsPorClinica[c];
+      rowsCuentaPropia.push([c, st.cp, pctCpStr(st.cp), st.cpInd, st.cpDual, st.cpFam, st.cpIngreso]);
+    });
+    rowsCuentaPropia.push([
+      "TOTAL CUENTA PROPIA",
+      cp,
+      "100%",
+      CLINICAS.reduce((acc, c) => acc + statsPorClinica[c].cpInd, 0),
+      CLINICAS.reduce((acc, c) => acc + statsPorClinica[c].cpDual, 0),
+      CLINICAS.reduce((acc, c) => acc + statsPorClinica[c].cpFam, 0),
+      sumCpIngresos
+    ]);
+    rowsCuentaPropia.push([]);
+    rowsCuentaPropia.push(["LISTADO DETALLADO DE PACIENTES POR CUENTA PROPIA"]);
+    rowsCuentaPropia.push(["No.", "Clínica", "Fecha", "Paciente", "Paquete", "Origen", "Ingreso Valoración ($ MXN)"]);
+
+    const soloCuentaPropia = filtered
+      .filter(r => (r.origen || '').includes('Cuenta propia') || !r.asesor || r.asesor === 'Sin asignar')
+      .sort((a, b) => (a.clinica || '').localeCompare(b.clinica || '') || (b.fecha || '').localeCompare(a.fecha || ''));
+
+    soloCuentaPropia.forEach((r, idx) => {
+      const esConvenio = (r.origen || '').includes('Convenio');
+      rowsCuentaPropia.push([
+        idx + 1,
+        r.clinica || '',
+        r.fecha || '',
+        r.nombre || '',
+        r.paquete || '',
+        r.origen || 'Cuenta propia',
+        esConvenio ? 0 : 350
+      ]);
+    });
+
     const wb = XLSX.utils.book_new();
     const wsPacientes = XLSX.utils.aoa_to_sheet(rowsPacientes);
     wsPacientes['!cols'] = [
       { wch: 6 },
-      { wch: 14 },
+      { wch: 16 },
       { wch: 32 },
+      { wch: 24 },
       { wch: 24 },
       { wch: 18 },
       { wch: 15 },
@@ -1729,13 +1850,29 @@ document.getElementById('btnExportExcel').onclick = () => {
 
     const wsResumen = XLSX.utils.aoa_to_sheet(rowsResumen);
     wsResumen['!cols'] = [
-      { wch: 40 },
-      { wch: 16 },
-      { wch: 22 }
+      { wch: 44 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 26 }
+    ];
+
+    const wsCuentaPropia = XLSX.utils.aoa_to_sheet(rowsCuentaPropia);
+    wsCuentaPropia['!cols'] = [
+      { wch: 26 },
+      { wch: 24 },
+      { wch: 26 },
+      { wch: 32 },
+      { wch: 15 },
+      { wch: 22 },
+      { wch: 24 }
     ];
 
     XLSX.utils.book_append_sheet(wb, wsPacientes, "Registro Completo");
     XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen Totales");
+    XLSX.utils.book_append_sheet(wb, wsCuentaPropia, "Cuenta Propia x Clinica");
 
     XLSX.writeFile(wb, `Registro_Completo_DentalMasFacil_${fileSuffix}.xlsx`);
     downloadOptionsModal.classList.remove('show');
@@ -2128,23 +2265,38 @@ async function generarReportePdf(includeCharts = true) {
     doc.text(`Resumen del Total Registrado (${total} pacientes)`, 14, tableStartY);
 
     const pctStr = (n) => total > 0 ? `${Math.round((n / total) * 100)}%` : '0%';
-    const summaryBody = CLINICAS.map(c => [
-      c,
-      countsClinica[c].toString(),
-      pctStr(countsClinica[c])
-    ]);
+    const summaryBody = CLINICAS.map(c => {
+      const regC = filtered.filter(r => r.clinica === c);
+      const cpC = regC.filter(r => (r.origen || '').includes('Cuenta propia') || !r.asesor || r.asesor === 'Sin asignar').length;
+      const asesC = regC.filter(r => (r.origen || '').includes('Por asesor') && r.asesor && r.asesor !== 'Sin asignar').length;
+      const convC = regC.filter(r => (r.origen || '').includes('Convenio')).length;
+      const docC = regC.filter(r => (r.origen || '').includes('Doctoralia')).length;
+      return [
+        c,
+        countsClinica[c].toString(),
+        cpC.toString(),
+        asesC.toString(),
+        convC.toString(),
+        docC.toString(),
+        pctStr(countsClinica[c])
+      ];
+    });
     summaryBody.push([
-      { content: 'TOTAL REGISTRADO EN CLÍNICAS', styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+      { content: 'TOTAL EN LAS 4 CLÍNICAS', styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
       { content: total.toString(), styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+      { content: cp.toString(), styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+      { content: ases.toString(), styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+      { content: conv.toString(), styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+      { content: docCount.toString(), styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
       { content: '100%', styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } }
     ]);
 
     doc.autoTable({
       startY: tableStartY + 5,
-      head: [['Clínica / Sucursal', 'Total Registrado', '% del Total']],
+      head: [['Clínica / Sucursal', 'Total Registrado', 'Cuenta Propia', 'Por Asesor', 'Convenio', 'Doctoralia', '% Total']],
       body: summaryBody,
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2.5, textColor: [30, 41, 59] },
+      styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [30, 41, 59] },
       headStyles: { fillColor: PRIMARY_COLOR, textColor: [255, 255, 255], fontStyle: 'bold' },
       margin: { left: 14, right: 14 }
     });
