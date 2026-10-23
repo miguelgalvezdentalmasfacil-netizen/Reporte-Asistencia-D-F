@@ -1,6 +1,6 @@
 document.getElementById('btnComparePdf').onclick = async () => {
   const ym = document.getElementById('pdfMonthSelect').value;
-  if(!ym) { alert("No hay mes seleccionado."); return; }
+  if(!ym || ym === 'ALL') { alert("Por favor selecciona un mes específico en el selector para comparar con el mes anterior."); return; }
   
   const [y_yr, mStr] = ym.split('-');
   let mes = parseInt(mStr, 10);

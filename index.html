@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --paper:#F6F8F6;
@@ -375,7 +376,58 @@
     </div>
   </div>
 
+  <!-- DOWNLOAD OPTIONS MODAL -->
+  <div class="modal-overlay" id="downloadOptionsModal">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">Exportar Información</div>
+          <h2>Opciones de Descarga de Reporte</h2>
+        </div>
+        <button class="modal-close" onclick="document.getElementById('downloadOptionsModal').classList.remove('show')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="field" style="margin-bottom: 18px;">
+          <label for="dlScopeSelect" style="font-size: 13px; color: var(--ink); font-weight: 700; margin-bottom: 8px;">1. Selecciona qué registros deseas incluir:</label>
+          <select id="dlScopeSelect" style="width: 100%; padding: 11px 14px; border: 1px solid var(--line); border-radius: 9px; font-family: 'Inter', sans-serif; font-size: 14.5px; color: var(--ink); background: var(--paper); font-weight: 600; outline: none;">
+            <option value="month" id="dlOptMonth">Mes seleccionado</option>
+            <option value="all" id="dlOptAll">Total registrado histórico (Todos los meses)</option>
+          </select>
+        </div>
+
+        <label style="display:block; font-size: 13px; color: var(--ink); font-weight: 700; margin-bottom: 10px;">2. Elige el formato de descarga:</label>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button type="button" id="btnExportExcel" class="dl-option-btn" style="display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; border: 1px solid #A7F3D0; background: #ECFDF5; cursor: pointer; transition: all 0.15s ease;">
+            <div style="width: 42px; height: 42px; border-radius: 10px; background: #10B981; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; font-weight: 700;">📊</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 14.5px; color: #065F46;">Descargar Registro Completo en Excel (.xlsx)</div>
+              <div style="font-size: 12.5px; color: #047857; margin-top: 2px; line-height: 1.35;">Tabla completa de pacientes registrados + pestaña con el resumen del total registrado por clínica, asesor y paquete.</div>
+            </div>
+          </button>
+
+          <button type="button" id="btnExportPdfFull" class="dl-option-btn" style="display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; border: 1px solid #BAE6FD; background: #F0F9FF; cursor: pointer; transition: all 0.15s ease;">
+            <div style="width: 42px; height: 42px; border-radius: 10px; background: #0EA5E9; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; font-weight: 700;">📄</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 14.5px; color: #0369A1;">Reporte PDF Completo (Gráficas + Total Registrado)</div>
+              <div style="font-size: 12.5px; color: #0284C7; margin-top: 2px; line-height: 1.35;">Incluye indicadores, todas las gráficas del reporte mensual, desglose de totales y la lista completa de pacientes.</div>
+            </div>
+          </button>
+
+          <button type="button" id="btnExportPdfTable" class="dl-option-btn" style="display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; transition: all 0.15s ease;">
+            <div style="width: 42px; height: 42px; border-radius: 10px; background: #64748B; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; font-weight: 700;">📋</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 14.5px; color: var(--ink);">Reporte PDF — Solo Registro Completo y Totales</div>
+              <div style="font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.35;">Bitácora directa en PDF con el resumen del total registrado y la tabla con todos los pacientes (sin páginas de gráficas).</div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <style>
+    .dl-option-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -6px rgba(18,43,39,0.15); }
     .main-tabs { display:flex; gap:16px; margin-bottom:24px; border-bottom:1px solid var(--line); }
     .main-tab {
       padding:10px 16px; font-size:15px; font-weight:600; color:var(--muted);
@@ -1320,7 +1372,7 @@ function renderAll(){
   const selectedMonth = document.getElementById('pdfMonthSelect').value;
   let dataDelMes = registros;
   
-  if(selectedMonth) {
+  if(selectedMonth && selectedMonth !== 'ALL') {
     dataDelMes = registros.filter(r => r.fecha && r.fecha.startsWith(selectedMonth));
   }
 
@@ -1370,7 +1422,6 @@ function actualizarMesesPdf() {
   const sortedMonths = Array.from(months).sort().reverse();
   
   select.innerHTML = '';
-  // Option to see "Todos los meses" (optional, but requested behavior is default to latest month)
   sortedMonths.forEach(ym => {
     const [y, m] = ym.split('-');
     const opt = document.createElement('option');
@@ -1379,8 +1430,13 @@ function actualizarMesesPdf() {
     select.appendChild(opt);
   });
 
+  const optAll = document.createElement('option');
+  optAll.value = 'ALL';
+  optAll.textContent = `Todos los meses (Total: ${registros.length})`;
+  select.appendChild(optAll);
+
   // Preserve selection if it still exists, otherwise default to the latest month
-  if(currentSel && sortedMonths.includes(currentSel)) {
+  if(currentSel && (sortedMonths.includes(currentSel) || currentSel === 'ALL')) {
     select.value = currentSel;
   } else {
     select.value = sortedMonths[0]; 
@@ -1391,7 +1447,7 @@ document.getElementById('pdfMonthSelect').addEventListener('change', () => {
   // Cuando el usuario cambie el mes, se re-renderiza todo pero SIN repoblar el dropdown
   const selectedMonth = document.getElementById('pdfMonthSelect').value;
   let dataDelMes = registros;
-  if(selectedMonth) {
+  if(selectedMonth && selectedMonth !== 'ALL') {
     dataDelMes = registros.filter(r => r.fecha && r.fecha.startsWith(selectedMonth));
   }
   renderClinicStrip(dataDelMes);
@@ -1493,28 +1549,228 @@ function addInsight(doc, text, x, y, maxWidth) {
   doc.text(lines, x, y);
 }
 
-document.getElementById('btnDownloadPdf').onclick = async () => {
-  const ym = document.getElementById('pdfMonthSelect').value;
-  if(!ym) {
-    alert("No hay datos para generar el reporte.");
-    return;
-  }
-  const filtered = registros.filter(r => r.fecha && r.fecha.startsWith(ym));
-  if(!filtered.length) {
-    alert("No hay registros en el mes seleccionado.");
-    return;
-  }
+const downloadOptionsModal = document.getElementById('downloadOptionsModal');
+downloadOptionsModal.addEventListener('click', (e) => {
+  if (e.target === downloadOptionsModal) downloadOptionsModal.classList.remove('show');
+});
 
-  const btn = document.getElementById('btnDownloadPdf');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = "Generando PDF...";
-  btn.disabled = true;
+document.getElementById('btnDownloadPdf').onclick = () => {
+  if (!registros.length) {
+    alert("No hay datos registrados aún para generar el reporte.");
+    return;
+  }
+  const selectEl = document.getElementById('pdfMonthSelect');
+  let ym = selectEl.value;
+  const isAllSelected = (ym === 'ALL');
+  if (isAllSelected && selectEl.options.length > 0 && selectEl.options[0].value !== 'ALL') {
+    ym = selectEl.options[0].value;
+  }
+  let mesText = "Mes actual";
+  let countMes = 0;
+  if (ym && ym !== 'ALL') {
+    const [y_yr, mStr] = ym.split('-');
+    const mesLabel = monthNames[parseInt(mStr, 10) - 1] || mStr;
+    mesText = `${mesLabel} ${y_yr}`;
+    countMes = registros.filter(r => r.fecha && r.fecha.startsWith(ym)).length;
+  }
+  document.getElementById('dlOptMonth').textContent = `Mes seleccionado (${mesText}) — ${countMes} ${countMes === 1 ? 'registro' : 'registros'}`;
+  document.getElementById('dlOptAll').textContent = `Total registrado histórico (Todos los meses) — ${registros.length} ${registros.length === 1 ? 'registro' : 'registros'}`;
+  
+  const scopeSelect = document.getElementById('dlScopeSelect');
+  if (isAllSelected || (countMes === 0 && registros.length > 0)) {
+    scopeSelect.value = 'all';
+  } else {
+    scopeSelect.value = 'month';
+  }
+  downloadOptionsModal.classList.add('show');
+};
+
+function getExportDataScope() {
+  const scope = document.getElementById('dlScopeSelect').value;
+  const selectEl = document.getElementById('pdfMonthSelect');
+  let ym = selectEl.value;
+  if (ym === 'ALL' && selectEl.options.length > 0 && selectEl.options[0].value !== 'ALL') {
+    ym = selectEl.options[0].value;
+  }
+  if (scope === 'all' || !ym || ym === 'ALL') {
+    return {
+      filtered: [...registros].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+      periodLabel: 'Total Histórico Registrado',
+      fileSuffix: 'Total_Historico'
+    };
+  }
+  const [y_yr, mStr] = ym.split('-');
+  const mesLabel = monthNames[parseInt(mStr, 10) - 1] || mStr;
+  return {
+    filtered: registros.filter(r => r.fecha && r.fecha.startsWith(ym)).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
+    periodLabel: `${mesLabel} ${y_yr}`,
+    fileSuffix: `${mesLabel}_${y_yr}`
+  };
+}
+
+// --- EXPORTAR A EXCEL (.XLSX) ---
+document.getElementById('btnExportExcel').onclick = () => {
+  const { filtered, periodLabel, fileSuffix } = getExportDataScope();
+  if (!filtered.length) {
+    alert("No hay registros en el periodo seleccionado. Puedes elegir 'Total registrado histórico' arriba.");
+    return;
+  }
 
   try {
-    const [y_yr, mStr] = ym.split('-');
-    const mesLabel = monthNames[parseInt(mStr,10)-1];
-    const title = `Reporte Mensual de Ventas — ${mesLabel} ${y_yr}`;
-    const fileName = `Reporte_Ventas_DentalMasFacil_${mesLabel}_${y_yr}.pdf`;
+    const now = new Date();
+    const total = filtered.length;
+    const ind = filtered.filter(r => r.paquete === 'Individual').length;
+    const dual = filtered.filter(r => r.paquete === 'Dual').length;
+    const fam = filtered.filter(r => r.paquete === 'Familiar').length;
+    let cp = 0, conv = 0, ases = 0, docCount = 0, paganCount = 0;
+    filtered.forEach(r => {
+      const orig = r.origen || '';
+      if (orig.includes('Cuenta propia')) cp++;
+      if (orig.includes('Convenio')) conv++;
+      else paganCount++;
+      if (orig.includes('Por asesor')) ases++;
+      if (orig.includes('Doctoralia')) docCount++;
+    });
+    const totalIngresos = paganCount * 350;
+
+    // Hoja 1: Registro Completo de Pacientes
+    const rowsPacientes = [
+      ["DENTAL MÁS FÁCIL — REGISTRO COMPLETO DE ASISTENCIA"],
+      [`Periodo: ${periodLabel}`, `Generado: ${now.toLocaleDateString('es-MX')} ${now.toLocaleTimeString('es-MX')}`, `TOTAL REGISTRADO: ${total} pacientes`],
+      [],
+      ["No.", "Fecha", "Paciente", "Clínica", "Asesor", "Paquete", "Origen", "Ingreso Valoración ($ MXN)"]
+    ];
+
+    filtered.forEach((r, idx) => {
+      const esConvenio = (r.origen || '').includes('Convenio');
+      rowsPacientes.push([
+        idx + 1,
+        r.fecha || '',
+        r.nombre || '',
+        r.clinica || '',
+        r.asesor || 'Sin asignar',
+        r.paquete || '',
+        r.origen || '',
+        esConvenio ? 0 : 350
+      ]);
+    });
+
+    rowsPacientes.push([]);
+    rowsPacientes.push([
+      "",
+      "TOTAL REGISTRADO",
+      `${total} pacientes`,
+      `Individual: ${ind} | Dual: ${dual} | Familiar: ${fam}`,
+      `Por asesor: ${ases} | Cuenta propia: ${cp}`,
+      `Convenio: ${conv}`,
+      `Doctoralia: ${docCount}`,
+      totalIngresos
+    ]);
+
+    // Hoja 2: Resumen del Total Registrado
+    const pctStr = (n) => total > 0 ? `${Math.round((n / total) * 100)}%` : '0%';
+    const rowsResumen = [
+      ["DENTAL MÁS FÁCIL — RESUMEN DEL TOTAL REGISTRADO"],
+      [`Periodo: ${periodLabel}`],
+      [],
+      ["INDICADOR GENERAL", "CANTIDAD", "PORCENTAJE / DETALLE"],
+      ["TOTAL DE PACIENTES REGISTRADOS", total, "100%"],
+      ["Pacientes con Pago de Valoración ($350)", paganCount, pctStr(paganCount)],
+      ["Pacientes por Convenio ($0)", conv, pctStr(conv)],
+      ["INGRESO TOTAL POR VALORACIONES ($ MXN)", totalIngresos, `$${totalIngresos.toLocaleString('es-MX')} MXN`],
+      [],
+      ["TOTAL REGISTRADO POR CLÍNICA", "PACIENTES", "PORCENTAJE"]
+    ];
+
+    CLINICAS.forEach(c => {
+      const cnt = filtered.filter(r => r.clinica === c).length;
+      rowsResumen.push([c, cnt, pctStr(cnt)]);
+    });
+    rowsResumen.push(["TOTAL CLÍNICAS", total, "100%"]);
+    rowsResumen.push([]);
+
+    rowsResumen.push(["TOTAL REGISTRADO POR ASESOR", "PACIENTES", "PORCENTAJE"]);
+    const countsAsesorMap = {};
+    filtered.forEach(r => {
+      const a = (r.asesor && r.asesor !== 'Sin asignar') ? r.asesor : 'Sin asignar (Cuenta propia)';
+      countsAsesorMap[a] = (countsAsesorMap[a] || 0) + 1;
+    });
+    Object.keys(countsAsesorMap).sort((a, b) => countsAsesorMap[b] - countsAsesorMap[a]).forEach(a => {
+      rowsResumen.push([a, countsAsesorMap[a], pctStr(countsAsesorMap[a])]);
+    });
+    rowsResumen.push(["TOTAL", total, "100%"]);
+    rowsResumen.push([]);
+
+    rowsResumen.push(["TOTAL REGISTRADO POR PAQUETE", "PACIENTES", "PORCENTAJE"]);
+    rowsResumen.push(["Individual", ind, pctStr(ind)]);
+    rowsResumen.push(["Dual", dual, pctStr(dual)]);
+    rowsResumen.push(["Familiar", fam, pctStr(fam)]);
+    rowsResumen.push(["TOTAL PAQUETES", total, "100%"]);
+    rowsResumen.push([]);
+
+    rowsResumen.push(["TOTAL REGISTRADO POR ORIGEN", "PACIENTES", "PORCENTAJE"]);
+    rowsResumen.push(["Cuenta propia", cp, pctStr(cp)]);
+    rowsResumen.push(["Por asesor", ases, pctStr(ases)]);
+    rowsResumen.push(["Convenio", conv, pctStr(conv)]);
+    rowsResumen.push(["Doctoralia", docCount, pctStr(docCount)]);
+
+    const wb = XLSX.utils.book_new();
+    const wsPacientes = XLSX.utils.aoa_to_sheet(rowsPacientes);
+    wsPacientes['!cols'] = [
+      { wch: 6 },
+      { wch: 14 },
+      { wch: 32 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 26 },
+      { wch: 24 }
+    ];
+
+    const wsResumen = XLSX.utils.aoa_to_sheet(rowsResumen);
+    wsResumen['!cols'] = [
+      { wch: 40 },
+      { wch: 16 },
+      { wch: 22 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsPacientes, "Registro Completo");
+    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen Totales");
+
+    XLSX.writeFile(wb, `Registro_Completo_DentalMasFacil_${fileSuffix}.xlsx`);
+    downloadOptionsModal.classList.remove('show');
+  } catch (err) {
+    console.error(err);
+    alert("Ocurrió un error al generar el archivo de Excel.");
+  }
+};
+
+document.getElementById('btnExportPdfFull').onclick = () => generarReportePdf(true);
+document.getElementById('btnExportPdfTable').onclick = () => generarReportePdf(false);
+
+async function generarReportePdf(includeCharts = true) {
+  const { filtered, periodLabel, fileSuffix } = getExportDataScope();
+  if(!filtered.length) {
+    alert("No hay registros en el periodo seleccionado. Puedes elegir 'Total registrado histórico' arriba.");
+    return;
+  }
+
+  const activeBtn = includeCharts ? document.getElementById('btnExportPdfFull') : document.getElementById('btnExportPdfTable');
+  const mainBtn = document.getElementById('btnDownloadPdf');
+  const originalActiveHtml = activeBtn.innerHTML;
+  const originalMainText = mainBtn.innerHTML;
+  activeBtn.style.opacity = '0.6';
+  activeBtn.style.pointerEvents = 'none';
+  mainBtn.innerHTML = "Generando PDF...";
+  mainBtn.disabled = true;
+
+  try {
+    const title = includeCharts
+      ? `Reporte y Registro Total — ${periodLabel}`
+      : `Registro Completo de Asistencia — ${periodLabel}`;
+    const fileName = includeCharts
+      ? `Reporte_Completo_DentalMasFacil_${fileSuffix}.pdf`
+      : `Bitacora_Total_Registrado_DentalMasFacil_${fileSuffix}.pdf`;
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -1541,7 +1797,7 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     doc.setFontSize(22);
     doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
     doc.text("Dental Más Fácil", 52, 22);
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
     doc.text(title, 52, 30);
     doc.setDrawColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
@@ -1550,28 +1806,30 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     const now = new Date();
-    doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}`, 14, 46);
+    doc.text(`Generado el ${now.toLocaleDateString('es-MX')} a las ${now.toLocaleTimeString('es-MX')}  |  TOTAL REGISTRADO: ${filtered.length} pacientes`, 14, 46);
 
     // --- CÁLCULOS KPI ---
     const total = filtered.length;
     const ind = filtered.filter(r => r.paquete === 'Individual').length;
     const dual = filtered.filter(r => r.paquete === 'Dual').length;
     const fam = filtered.filter(r => r.paquete === 'Familiar').length;
-    let cp = 0, conv = 0, ases = 0;
+    let cp = 0, conv = 0, ases = 0, docCount = 0;
     filtered.forEach(r => {
       if(r.origen.includes('Cuenta propia')) cp++;
       if(r.origen.includes('Convenio')) conv++;
       if(r.origen.includes('Por asesor')) ases++;
+      if(r.origen.includes('Doctoralia')) docCount++;
     });
 
     const kpis = [
-      { label: 'TOTAL', val: total },
+      { label: 'TOTAL REGISTRADO', val: total },
       { label: 'Individual', val: ind },
       { label: 'Dual', val: dual },
       { label: 'Familiar', val: fam },
       { label: 'Cuenta Propia', val: cp },
+      { label: 'Por Asesor', val: ases },
       { label: 'Convenio', val: conv },
-      { label: 'Por Asesor', val: ases }
+      { label: 'Doctoralia', val: docCount }
     ];
 
     let startX = 14;
@@ -1586,270 +1844,355 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
       const row = Math.floor(idx / 4);
       const cx = startX + (col * (cardW + gap));
       const cy = startY + (row * (cardH + gap));
-      doc.setDrawColor(220, 220, 220);
-      doc.setFillColor(250, 250, 250);
+      if (idx === 0) {
+        doc.setDrawColor(14, 165, 233);
+        doc.setFillColor(224, 242, 254);
+      } else {
+        doc.setDrawColor(220, 220, 220);
+        doc.setFillColor(250, 250, 250);
+      }
       doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'FD');
-      doc.setTextColor(150, 150, 150);
+      doc.setTextColor(idx === 0 ? 2 : 150, idx === 0 ? 132 : 150, idx === 0 ? 199 : 150);
       doc.setFont("helvetica", "bold");
-      doc.text(kpi.label.toUpperCase(), cx + 4, cy + 6);
+      doc.text(kpi.label.toUpperCase(), cx + 3, cy + 6);
       doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", idx === 0 ? "bold" : "normal");
       doc.setFontSize(14);
-      doc.text(kpi.val.toString(), cx + 4, cy + 14);
+      doc.text(kpi.val.toString(), cx + 3, cy + 14);
       doc.setFontSize(8);
     });
 
-    // --- GENERACIÓN DE GRÁFICOS ---
-    const chartWidth = 600;
-    const chartHeight = 350;
-
-    // 1. Asistencia por clínica (Dona)
     const countsClinica = {};
     CLINICAS.forEach(c => countsClinica[c] = 0);
     filtered.forEach(r => { if(countsClinica[r.clinica] !== undefined) countsClinica[r.clinica]++; });
     const clinicasSorted = [...CLINICAS].sort((a,b)=>countsClinica[b]-countsClinica[a]);
-    const chart2_b64 = await renderChartToBase64({
-      type: 'doughnut',
-      data: {
-        labels: CLINICAS,
-        datasets: [{ data: CLINICAS.map(c => countsClinica[c]), backgroundColor: ['#0EA5E9','#F59E0B','#8B5CF6','#10B981'] }]
-      },
-      options: { plugins: { title: { display: true, text: 'Pacientes por Clínica' } } }
-    }, 400, 400);
 
-    // 2. Origen (Cuenta propia vs Por Asesor) (Pastel)
-    const chart3_b64 = await renderChartToBase64({
-      type: 'pie',
-      data: {
-        labels: ['Cuenta Propia', 'Por Asesor'],
-        datasets: [{ data: [cp, ases], backgroundColor: ['#10B981', '#F59E0B'] }]
-      },
-      options: { plugins: { title: { display: true, text: 'Origen Principal' } } }
-    }, 400, 400);
-
-    // 3. Tendencia (Línea)
-    const timeline = {};
-    filtered.forEach(r => { timeline[r.fecha] = (timeline[r.fecha] || 0) + 1; });
-    const datesSorted = Object.keys(timeline).sort();
-    const peakDay = datesSorted.length ? datesSorted.reduce((a,b)=>timeline[a] > timeline[b] ? a : b) : 'N/A';
-    const chart6_b64 = await renderChartToBase64({
-      type: 'line',
-      data: {
-        labels: datesSorted.length ? datesSorted : ['Sin datos'],
-        datasets: [{ label: 'Registros', data: datesSorted.length ? datesSorted.map(d => timeline[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
-      },
-      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia Mensual' } }, scales: { y: { beginAtZero: true } } }
-    }, chartWidth + 200, chartHeight);
-
-    // 4. Rendimiento por asesor (Barras Horizontales)
     const countsAsesor = {};
     filtered.forEach(r => {
       if(r.asesor && r.asesor !== 'Sin asignar') countsAsesor[r.asesor] = (countsAsesor[r.asesor] || 0) + 1;
     });
     const asesoresSorted = Object.keys(countsAsesor).sort((a,b) => countsAsesor[b] - countsAsesor[a]);
-    const chart1_b64 = await renderChartToBase64({
-      type: 'bar',
-      data: {
-        labels: asesoresSorted.length ? asesoresSorted : ['Sin datos'],
-        datasets: [{ label: 'Pacientes', data: asesoresSorted.length ? asesoresSorted.map(a => countsAsesor[a]) : [0], backgroundColor: '#0EA5E9' }]
-      },
-      options: { indexAxis: 'y', plugins: { legend: { display: false }, title: { display: true, text: 'Rendimiento por Asesor' } }, scales: { x: { suggestedMax: (asesoresSorted.length ? countsAsesor[asesoresSorted[0]] : 0) + 2 } } }
-    }, chartWidth, chartHeight);
 
-    // 5. Convenio (De asesor vs cuenta propia)
-    let convAsesor = 0, convPropia = 0;
-    filtered.forEach(r => {
-      if(r.origen.includes('Convenio')) {
-        if(r.asesor && r.asesor !== 'Sin asignar') convAsesor++;
-        else convPropia++;
-      }
-    });
-    const chart4_b64 = await renderChartToBase64({
-      type: 'bar',
-      data: {
-        labels: ['De asesor', 'Cuenta propia'],
-        datasets: [{ label: 'Convenios', data: [convAsesor, convPropia], backgroundColor: '#8B5CF6' }]
-      },
-      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Desglose de Convenios' } }, scales: { y: { suggestedMax: Math.max(convAsesor, convPropia) + 2 } } }
-    }, 400, 350);
+    if (includeCharts) {
+      // --- GENERACIÓN DE GRÁFICOS ---
+      const chartWidth = 600;
+      const chartHeight = 350;
 
-    // 6. Asesor por clínica (Grouped Bar)
-    const cruzados = {};
-    CLINICAS.forEach(c => {
-      cruzados[c] = {};
-      asesoresSorted.forEach(a => cruzados[c][a] = 0);
-    });
-    filtered.forEach(r => {
-      if(r.asesor && r.asesor !== 'Sin asignar' && cruzados[r.clinica]) {
-        cruzados[r.clinica][r.asesor]++;
-      }
-    });
-    let dominatingText = [];
-    CLINICAS.forEach(c => {
-      let topA = '', maxV = 0;
-      asesoresSorted.forEach(a => { if(cruzados[c][a] > maxV){ maxV = cruzados[c][a]; topA = a; } });
-      if(maxV > 0) dominatingText.push(`${topA} en ${c}`);
-    });
-    const colors = ['#0EA5E9','#F59E0B','#8B5CF6','#10B981','#EC4899'];
-    const datasetsGrouped = asesoresSorted.map((a, i) => ({
-      label: a,
-      data: CLINICAS.map(c => cruzados[c][a]),
-      backgroundColor: colors[i % colors.length]
-    }));
-    const chart5_b64 = await renderChartToBase64({
-      type: 'bar',
-      data: { labels: CLINICAS, datasets: datasetsGrouped },
-      options: { plugins: { title: { display: true, text: 'Asesor por Clínica' } }, scales: { x: { stacked: false }, y: { stacked: false } } }
-    }, chartWidth, chartHeight);
+      // 1. Asistencia por clínica (Dona)
+      const chart2_b64 = await renderChartToBase64({
+        type: 'doughnut',
+        data: {
+          labels: CLINICAS,
+          datasets: [{ data: CLINICAS.map(c => countsClinica[c]), backgroundColor: ['#0EA5E9','#F59E0B','#8B5CF6','#10B981'] }]
+        },
+        options: { plugins: { title: { display: true, text: 'Pacientes por Clínica' } } }
+      }, 400, 400);
 
+      // 2. Origen (Cuenta propia vs Por Asesor) (Pastel)
+      const chart3_b64 = await renderChartToBase64({
+        type: 'pie',
+        data: {
+          labels: ['Cuenta Propia', 'Por Asesor'],
+          datasets: [{ data: [cp, ases], backgroundColor: ['#10B981', '#F59E0B'] }]
+        },
+        options: { plugins: { title: { display: true, text: 'Origen Principal' } } }
+      }, 400, 400);
 
-    // 7. Cuenta propia por Clínica (Barras)
-    const cpClinica = {};
-    CLINICAS.forEach(c => cpClinica[c] = 0);
-    const cpRegistros = filtered.filter(r => r.origen.includes('Cuenta propia'));
-    cpRegistros.forEach(r => { if(cpClinica[r.clinica] !== undefined) cpClinica[r.clinica]++; });
-    let maxCpC = '', maxCpV = 0;
-    CLINICAS.forEach(c => { if(cpClinica[c] > maxCpV) { maxCpV = cpClinica[c]; maxCpC = c; } });
-    const cpPct = cp > 0 ? Math.round((maxCpV / cp) * 100) : 0;
-    
-    const chart7_b64 = await renderChartToBase64({
-      type: 'bar',
-      data: {
-        labels: CLINICAS,
-        datasets: [{ label: 'Cuenta Propia', data: CLINICAS.map(c => cpClinica[c]), backgroundColor: '#10B981' }]
-      },
-      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Cuenta Propia por Clínica' } } }
-    }, chartWidth, chartHeight);
+      // 3. Tendencia (Línea)
+      const timeline = {};
+      filtered.forEach(r => { timeline[r.fecha] = (timeline[r.fecha] || 0) + 1; });
+      const datesSorted = Object.keys(timeline).sort();
+      const peakDay = datesSorted.length ? datesSorted.reduce((a,b)=>timeline[a] > timeline[b] ? a : b) : 'N/A';
+      const chart6_b64 = await renderChartToBase64({
+        type: 'line',
+        data: {
+          labels: datesSorted.length ? datesSorted : ['Sin datos'],
+          datasets: [{ label: 'Registros', data: datesSorted.length ? datesSorted.map(d => timeline[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
+        },
+        options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia de Asistencia' } }, scales: { y: { beginAtZero: true } } }
+      }, chartWidth + 200, chartHeight);
 
-    // 8. Cuenta propia (Tendencia Línea)
-    const tlCp = {};
-    cpRegistros.forEach(r => { tlCp[r.fecha] = (tlCp[r.fecha] || 0) + 1; });
-    const cpDatesSorted = Object.keys(tlCp).sort();
-    const chart8_b64 = await renderChartToBase64({
-      type: 'line',
-      data: {
-        labels: cpDatesSorted.length ? cpDatesSorted : ['Sin datos'],
-        datasets: [{ label: 'Pacientes CP', data: cpDatesSorted.length ? cpDatesSorted.map(d => tlCp[d]) : [0], borderColor: '#10B981', tension: 0.3 }]
-      },
-      options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia Mensual (Cuenta Propia)' } }, scales: { y: { beginAtZero: true } } }
-    }, chartWidth + 200, chartHeight);
+      // 4. Rendimiento por asesor (Barras Horizontales)
+      const chart1_b64 = await renderChartToBase64({
+        type: 'bar',
+        data: {
+          labels: asesoresSorted.length ? asesoresSorted : ['Sin datos'],
+          datasets: [{ label: 'Pacientes', data: asesoresSorted.length ? asesoresSorted.map(a => countsAsesor[a]) : [0], backgroundColor: '#0EA5E9' }]
+        },
+        options: { indexAxis: 'y', plugins: { legend: { display: false }, title: { display: true, text: 'Rendimiento por Asesor' } }, scales: { x: { suggestedMax: (asesoresSorted.length ? countsAsesor[asesoresSorted[0]] : 0) + 2 } } }
+      }, chartWidth, chartHeight);
 
+      // 5. Convenio (De asesor vs cuenta propia)
+      let convAsesor = 0, convPropia = 0;
+      filtered.forEach(r => {
+        if(r.origen.includes('Convenio')) {
+          if(r.asesor && r.asesor !== 'Sin asignar') convAsesor++;
+          else convPropia++;
+        }
+      });
+      const chart4_b64 = await renderChartToBase64({
+        type: 'bar',
+        data: {
+          labels: ['De asesor', 'Cuenta propia'],
+          datasets: [{ label: 'Convenios', data: [convAsesor, convPropia], backgroundColor: '#8B5CF6' }]
+        },
+        options: { plugins: { legend: { display: false }, title: { display: true, text: 'Desglose de Convenios' } }, scales: { y: { suggestedMax: Math.max(convAsesor, convPropia) + 2 } } }
+      }, 400, 350);
 
-    // --- DIBUJAR PÁGINA 1 ---
-    let yPos = 100;
-    doc.addImage(chart3_b64, 'PNG', 14, yPos, 75, 75);
-    let pctAses = total > 0 ? Math.round((ases/total)*100) : 0;
-    let pctProp = total > 0 ? Math.round((cp/total)*100) : 0;
-    addInsight(doc, `El ${pctAses}% llegó por asesores; el ${pctProp}% fue cuenta propia de la clínica.`, 14, yPos + 80, 80);
+      // 6. Asesor por clínica (Grouped Bar)
+      const cruzados = {};
+      CLINICAS.forEach(c => {
+        cruzados[c] = {};
+        asesoresSorted.forEach(a => cruzados[c][a] = 0);
+      });
+      filtered.forEach(r => {
+        if(r.asesor && r.asesor !== 'Sin asignar' && cruzados[r.clinica]) {
+          cruzados[r.clinica][r.asesor]++;
+        }
+      });
+      let dominatingText = [];
+      CLINICAS.forEach(c => {
+        let topA = '', maxV = 0;
+        asesoresSorted.forEach(a => { if(cruzados[c][a] > maxV){ maxV = cruzados[c][a]; topA = a; } });
+        if(maxV > 0) dominatingText.push(`${topA} en ${c}`);
+      });
+      const colors = ['#0EA5E9','#F59E0B','#8B5CF6','#10B981','#EC4899'];
+      const datasetsGrouped = asesoresSorted.map((a, i) => ({
+        label: a,
+        data: CLINICAS.map(c => cruzados[c][a]),
+        backgroundColor: colors[i % colors.length]
+      }));
+      const chart5_b64 = await renderChartToBase64({
+        type: 'bar',
+        data: { labels: CLINICAS, datasets: datasetsGrouped },
+        options: { plugins: { title: { display: true, text: 'Asesor por Clínica' } }, scales: { x: { stacked: false }, y: { stacked: false } } }
+      }, chartWidth, chartHeight);
 
-    doc.addImage(chart2_b64, 'PNG', 105, yPos, 75, 75);
-    if(clinicasSorted.length > 0 && countsClinica[clinicasSorted[0]] > 0) {
-      addInsight(doc, `${clinicasSorted[0]} tuvo más pacientes (${countsClinica[clinicasSorted[0]]}); ${clinicasSorted[clinicasSorted.length-1]} tuvo menos (${countsClinica[clinicasSorted[clinicasSorted.length-1]]}).`, 105, yPos + 80, 80);
-    }
-    
-    yPos += 95;
-    
-    doc.addImage(chart6_b64, 'PNG', 14, yPos, 180, 70);
-    if(peakDay !== 'N/A') {
-      addInsight(doc, `El día de mayor actividad fue el ${peakDay} con ${timeline[peakDay]} pacientes.`, 14, yPos + 75, 180);
-    }
-    
-    // --- PÁGINA 2 ---
-    doc.addPage();
-    yPos = 20;
-
-    doc.addImage(chart1_b64, 'PNG', 14, yPos, 100, 60);
-    if(asesoresSorted.length > 0) {
-      addInsight(doc, `${asesoresSorted[0]} fue el asesor top del mes con ${countsAsesor[asesoresSorted[0]]} pacientes.`, 14, yPos + 65, 100);
-    }
-
-    doc.addImage(chart4_b64, 'PNG', 120, yPos, 70, 60);
-    addInsight(doc, `De ${conv} convenios en total, ${convAsesor} fueron por asesor y ${convPropia} llegaron directo.`, 120, yPos + 65, 70);
-
-    yPos += 85;
-
-    doc.addImage(chart5_b64, 'PNG', 14, yPos, 160, 90);
-    if(dominatingText.length > 0) {
-      addInsight(doc, `Liderazgo por plaza: ${dominatingText.join(', ')}.`, 14, yPos + 95, 160);
-    }
-
-    // --- PÁGINA 3 (CUENTA PROPIA) ---
-    doc.addPage();
-    yPos = 20;
-    
-    doc.addImage(chart7_b64, 'PNG', 14, yPos, 160, 90);
-    if(maxCpV > 0) {
-      addInsight(doc, `${maxCpC} tuvo el mayor volumen de cuenta propia con ${maxCpV} pacientes, representando el ${cpPct}% de todo el tráfico orgánico.`, 14, yPos + 95, 160);
-    }
-    
-    yPos += 110;
-    
-    doc.addImage(chart8_b64, 'PNG', 14, yPos, 180, 70);
-    const peakDayCp = cpDatesSorted.length ? cpDatesSorted.reduce((a,b)=>tlCp[a] > tlCp[b] ? a : b) : 'N/A';
-    if(peakDayCp !== 'N/A') {
-      addInsight(doc, `El día de mayor actividad de cuenta propia fue el ${peakDayCp} con ${tlCp[peakDayCp]} pacientes. En total el mes sumó ${cp} orgánicos.`, 14, yPos + 75, 180);
-    }
-
-    // --- PÁGINA 4 (TARJETAS INDIVIDUALES) ---
-    if(asesoresSorted.length > 0) {
-      doc.addPage();
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
-      doc.text("Rendimiento Individual por Asesor", 14, 20);
+      // 7. Cuenta propia por Clínica (Barras)
+      const cpClinica = {};
+      CLINICAS.forEach(c => cpClinica[c] = 0);
+      const cpRegistros = filtered.filter(r => r.origen.includes('Cuenta propia'));
+      cpRegistros.forEach(r => { if(cpClinica[r.clinica] !== undefined) cpClinica[r.clinica]++; });
+      let maxCpC = '', maxCpV = 0;
+      CLINICAS.forEach(c => { if(cpClinica[c] > maxCpV) { maxCpV = cpClinica[c]; maxCpC = c; } });
+      const cpPct = cp > 0 ? Math.round((maxCpV / cp) * 100) : 0;
       
-      let cardY = 30;
-      for(let a of asesoresSorted) {
-        if(cardY > 160) {
-          doc.addPage();
-          cardY = 20;
-        }
-        
-        const pcts = filtered.filter(r => r.asesor === a);
-        const c_clinicas = [...new Set(pcts.map(r=>r.clinica))];
-        
-        const tl = {};
-        pcts.forEach(r => { tl[r.fecha] = (tl[r.fecha] || 0) + 1; });
-        const ds = Object.keys(tl).sort();
-        const peakDayA = ds.length ? ds.reduce((x,y)=>tl[x] > tl[y] ? x : y) : 'N/A';
-        
-        const b64_asesor = await renderChartToBase64({
-          type: 'line',
-          data: {
-            labels: ds.length ? ds : ['Sin datos'],
-            datasets: [{ label: 'Pacientes', data: ds.length ? ds.map(d=>tl[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
-          },
-          options: { plugins: { legend: { display: false }, title: { display: false } }, scales: { y: { beginAtZero: true } } }
-        }, chartWidth + 200, chartHeight);
-        
-        doc.setDrawColor(220, 220, 220);
-        doc.setFillColor(250, 250, 250);
-        doc.roundedRect(14, cardY, 180, 120, 2, 2, 'FD');
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
-        doc.text(a, 18, cardY + 10);
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9);
-        doc.text(`Atendió un total de ${pcts.length} pacientes en: ${c_clinicas.join(', ')}`, 18, cardY + 18);
-        
-        let msg = "";
-        if(a === asesoresSorted[0]) msg = `¡${a} fue el asesor número 1 este mes!`;
-        doc.setFont("helvetica", "italic");
-        doc.setTextColor(100, 100, 100);
-        doc.text(msg, 18, cardY + 26);
-        
-        doc.addImage(b64_asesor, 'PNG', 16, cardY + 30, 176, 75);
-        
-        if(peakDayA !== 'N/A') {
-          addInsight(doc, `Su día de mayor actividad fue el ${peakDayA} con ${tl[peakDayA]} pacientes.`, 18, cardY + 112, 170);
-        }
-        
-        cardY += 128;
+      const chart7_b64 = await renderChartToBase64({
+        type: 'bar',
+        data: {
+          labels: CLINICAS,
+          datasets: [{ label: 'Cuenta Propia', data: CLINICAS.map(c => cpClinica[c]), backgroundColor: '#10B981' }]
+        },
+        options: { plugins: { legend: { display: false }, title: { display: true, text: 'Cuenta Propia por Clínica' } } }
+      }, chartWidth, chartHeight);
+
+      // 8. Cuenta propia (Tendencia Línea)
+      const tlCp = {};
+      cpRegistros.forEach(r => { tlCp[r.fecha] = (tlCp[r.fecha] || 0) + 1; });
+      const cpDatesSorted = Object.keys(tlCp).sort();
+      const chart8_b64 = await renderChartToBase64({
+        type: 'line',
+        data: {
+          labels: cpDatesSorted.length ? cpDatesSorted : ['Sin datos'],
+          datasets: [{ label: 'Pacientes CP', data: cpDatesSorted.length ? cpDatesSorted.map(d => tlCp[d]) : [0], borderColor: '#10B981', tension: 0.3 }]
+        },
+        options: { plugins: { legend: { display: false }, title: { display: true, text: 'Tendencia (Cuenta Propia)' } }, scales: { y: { beginAtZero: true } } }
+      }, chartWidth + 200, chartHeight);
+
+      // --- DIBUJAR PÁGINA 1 ---
+      let yPos = 100;
+      doc.addImage(chart3_b64, 'PNG', 14, yPos, 75, 75);
+      let pctAses = total > 0 ? Math.round((ases/total)*100) : 0;
+      let pctProp = total > 0 ? Math.round((cp/total)*100) : 0;
+      addInsight(doc, `El ${pctAses}% llegó por asesores; el ${pctProp}% fue cuenta propia de la clínica.`, 14, yPos + 80, 80);
+
+      doc.addImage(chart2_b64, 'PNG', 105, yPos, 75, 75);
+      if(clinicasSorted.length > 0 && countsClinica[clinicasSorted[0]] > 0) {
+        addInsight(doc, `${clinicasSorted[0]} tuvo más pacientes (${countsClinica[clinicasSorted[0]]}); ${clinicasSorted[clinicasSorted.length-1]} tuvo menos (${countsClinica[clinicasSorted[clinicasSorted.length-1]]}).`, 105, yPos + 80, 80);
       }
+      
+      yPos += 95;
+      
+      doc.addImage(chart6_b64, 'PNG', 14, yPos, 180, 70);
+      if(peakDay !== 'N/A') {
+        addInsight(doc, `El día de mayor actividad fue el ${peakDay} con ${timeline[peakDay]} pacientes.`, 14, yPos + 75, 180);
+      }
+      
+      // --- PÁGINA 2 ---
+      doc.addPage();
+      yPos = 20;
+
+      doc.addImage(chart1_b64, 'PNG', 14, yPos, 100, 60);
+      if(asesoresSorted.length > 0) {
+        addInsight(doc, `${asesoresSorted[0]} fue el asesor top con ${countsAsesor[asesoresSorted[0]]} pacientes.`, 14, yPos + 65, 100);
+      }
+
+      doc.addImage(chart4_b64, 'PNG', 120, yPos, 70, 60);
+      addInsight(doc, `De ${conv} convenios en total, ${convAsesor} fueron por asesor y ${convPropia} llegaron directo.`, 120, yPos + 65, 70);
+
+      yPos += 85;
+
+      doc.addImage(chart5_b64, 'PNG', 14, yPos, 160, 90);
+      if(dominatingText.length > 0) {
+        addInsight(doc, `Liderazgo por plaza: ${dominatingText.join(', ')}.`, 14, yPos + 95, 160);
+      }
+
+      // --- PÁGINA 3 (CUENTA PROPIA) ---
+      doc.addPage();
+      yPos = 20;
+      
+      doc.addImage(chart7_b64, 'PNG', 14, yPos, 160, 90);
+      if(maxCpV > 0) {
+        addInsight(doc, `${maxCpC} tuvo el mayor volumen de cuenta propia con ${maxCpV} pacientes, representando el ${cpPct}% de todo el tráfico orgánico.`, 14, yPos + 95, 160);
+      }
+      
+      yPos += 110;
+      
+      doc.addImage(chart8_b64, 'PNG', 14, yPos, 180, 70);
+      const peakDayCp = cpDatesSorted.length ? cpDatesSorted.reduce((a,b)=>tlCp[a] > tlCp[b] ? a : b) : 'N/A';
+      if(peakDayCp !== 'N/A') {
+        addInsight(doc, `El día de mayor actividad de cuenta propia fue el ${peakDayCp} con ${tlCp[peakDayCp]} pacientes. En total sumó ${cp} orgánicos.`, 14, yPos + 75, 180);
+      }
+
+      // --- PÁGINA 4 (TARJETAS INDIVIDUALES) ---
+      if(asesoresSorted.length > 0) {
+        doc.addPage();
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+        doc.text("Rendimiento Individual por Asesor", 14, 20);
+        
+        let cardY = 30;
+        for(let a of asesoresSorted) {
+          if(cardY > 160) {
+            doc.addPage();
+            cardY = 20;
+          }
+          
+          const pcts = filtered.filter(r => r.asesor === a);
+          const c_clinicas = [...new Set(pcts.map(r=>r.clinica))];
+          
+          const tl = {};
+          pcts.forEach(r => { tl[r.fecha] = (tl[r.fecha] || 0) + 1; });
+          const ds = Object.keys(tl).sort();
+          const peakDayA = ds.length ? ds.reduce((x,y)=>tl[x] > tl[y] ? x : y) : 'N/A';
+          
+          const b64_asesor = await renderChartToBase64({
+            type: 'line',
+            data: {
+              labels: ds.length ? ds : ['Sin datos'],
+              datasets: [{ label: 'Pacientes', data: ds.length ? ds.map(d=>tl[d]) : [0], borderColor: '#0EA5E9', tension: 0.3 }]
+            },
+            options: { plugins: { legend: { display: false }, title: { display: false } }, scales: { y: { beginAtZero: true } } }
+          }, chartWidth + 200, chartHeight);
+          
+          doc.setDrawColor(220, 220, 220);
+          doc.setFillColor(250, 250, 250);
+          doc.roundedRect(14, cardY, 180, 120, 2, 2, 'FD');
+          
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+          doc.setTextColor(TEXT_COLOR[0], TEXT_COLOR[1], TEXT_COLOR[2]);
+          doc.text(a, 18, cardY + 10);
+          
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.text(`Atendió un total de ${pcts.length} pacientes en: ${c_clinicas.join(', ')}`, 18, cardY + 18);
+          
+          let msg = "";
+          if(a === asesoresSorted[0]) msg = `¡${a} fue el asesor número 1 del periodo!`;
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(100, 100, 100);
+          doc.text(msg, 18, cardY + 26);
+          
+          doc.addImage(b64_asesor, 'PNG', 16, cardY + 30, 176, 75);
+          
+          if(peakDayA !== 'N/A') {
+            addInsight(doc, `Su día de mayor actividad fue el ${peakDayA} con ${tl[peakDayA]} pacientes.`, 18, cardY + 112, 170);
+          }
+          
+          cardY += 128;
+        }
+      }
+
+      // Nueva página para el Resumen de Totales y Registro Completo
+      doc.addPage();
     }
+
+    // --- SECCIÓN: RESUMEN DEL TOTAL REGISTRADO Y BITÁCORA COMPLETA ---
+    let tableStartY = includeCharts ? 22 : 102;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.text(`Resumen del Total Registrado (${total} pacientes)`, 14, tableStartY);
+
+    const pctStr = (n) => total > 0 ? `${Math.round((n / total) * 100)}%` : '0%';
+    const summaryBody = CLINICAS.map(c => [
+      c,
+      countsClinica[c].toString(),
+      pctStr(countsClinica[c])
+    ]);
+    summaryBody.push([
+      { content: 'TOTAL REGISTRADO EN CLÍNICAS', styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+      { content: total.toString(), styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } },
+      { content: '100%', styles: { fontStyle: 'bold', fillColor: [224, 242, 254] } }
+    ]);
+
+    doc.autoTable({
+      startY: tableStartY + 5,
+      head: [['Clínica / Sucursal', 'Total Registrado', '% del Total']],
+      body: summaryBody,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2.5, textColor: [30, 41, 59] },
+      headStyles: { fillColor: PRIMARY_COLOR, textColor: [255, 255, 255], fontStyle: 'bold' },
+      margin: { left: 14, right: 14 }
+    });
+
+    let nextY = doc.lastAutoTable.finalY + 10;
+    if (nextY > 250) {
+      doc.addPage();
+      nextY = 20;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(PRIMARY_COLOR[0], PRIMARY_COLOR[1], PRIMARY_COLOR[2]);
+    doc.text(`Registro Completo de Pacientes (${total} registros)`, 14, nextY);
+
+    const fullTableBody = filtered.map((r, index) => [
+      (index + 1).toString(),
+      r.fecha || '—',
+      r.nombre || '—',
+      r.clinica || '—',
+      r.asesor || 'Sin asignar',
+      r.paquete || '—',
+      r.origen || '—'
+    ]);
+
+    fullTableBody.push([
+      { content: 'TOTAL REGISTRADO', colSpan: 2, styles: { fontStyle: 'bold', fillColor: [224, 242, 254], textColor: [2, 132, 199] } },
+      { content: `${total} pacientes registrados`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: [224, 242, 254], textColor: [30, 41, 59] } }
+    ]);
+
+    doc.autoTable({
+      startY: nextY + 5,
+      head: [['#', 'Fecha', 'Paciente', 'Clínica', 'Asesor', 'Paquete', 'Origen']],
+      body: fullTableBody,
+      theme: 'striped',
+      styles: { fontSize: 8.5, cellPadding: 2.5, textColor: [30, 41, 59] },
+      headStyles: { fillColor: PRIMARY_COLOR, textColor: [255, 255, 255], fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 46 },
+        3: { cellWidth: 34 },
+        4: { cellWidth: 24 },
+        5: { cellWidth: 20 },
+        6: { cellWidth: 26 }
+      },
+      margin: { left: 14, right: 14 }
+    });
 
     // Footer en todas las páginas
     const pages = doc.internal.getNumberOfPages();
@@ -1862,14 +2205,18 @@ document.getElementById('btnDownloadPdf').onclick = async () => {
     }
 
     doc.save(fileName);
+    downloadOptionsModal.classList.remove('show');
   } catch (err) {
     console.error(err);
     alert("Ocurrió un error al generar el reporte.");
   } finally {
-    btn.innerHTML = originalText;
-    btn.disabled = false;
+    activeBtn.innerHTML = originalActiveHtml;
+    activeBtn.style.opacity = '1';
+    activeBtn.style.pointerEvents = 'auto';
+    mainBtn.innerHTML = originalMainText;
+    mainBtn.disabled = false;
   }
-};
+}
 
 renderAll();
 cargarDesdeSheets();
