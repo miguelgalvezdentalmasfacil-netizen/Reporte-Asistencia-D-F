@@ -25,6 +25,16 @@ const CLINICA_CORTA = {
   'Ensenada': 'ENSENADA'
 };
 
+// ─── HELPER: Expande el sheet si las filas/columnas necesarias superan su tamaño actual ───
+function asegurarDimensiones_(sheet, filasNecesarias, colsNecesarias) {
+  if (sheet.getMaxRows() < filasNecesarias) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), filasNecesarias - sheet.getMaxRows());
+  }
+  if (sheet.getMaxColumns() < colsNecesarias) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), colsNecesarias - sheet.getMaxColumns());
+  }
+}
+
 function setupSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
@@ -46,7 +56,7 @@ function setupSheet() {
 
   const widths = [40, 130, 220, 200, 170, 110, 130, 170];
   widths.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
-  sheet.hideColumns(1); 
+  sheet.hideColumns(1);
 
   sheet.getRange('B2:B2000').setNumberFormat('yyyy-mm-dd');
   sheet.getRange('H2:H2000').setNumberFormat('yyyy-mm-dd hh:mm:ss');
@@ -65,7 +75,7 @@ function setupSheet() {
 
   const origenRule = SpreadsheetApp.newDataValidation()
     .requireValueInList(['Cuenta propia', 'Convenio', 'Por asesor', 'Cuenta propia, Por asesor', 'Convenio, Por asesor'], true)
-    .setAllowInvalid(true) 
+    .setAllowInvalid(true)
     .build();
   sheet.getRange('G2:G2000').setDataValidation(origenRule);
 
@@ -83,7 +93,6 @@ function setupSheet() {
   generarResumenMensual();
 
   instalarTriggerActualizacion();
-
   getOrCreateCitasSheet_();
 }
 
@@ -99,7 +108,7 @@ function instalarTriggerActualizacion() {
 
 function alCambiarHoja(e) {
   const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('dmf_actualizando') === '1') return; 
+  if (props.getProperty('dmf_actualizando') === '1') return;
   if (e && e.changeType && ['REMOVE_ROW', 'INSERT_ROW', 'EDIT', 'REMOVE_GRID', 'INSERT_GRID', 'OTHER'].indexOf(e.changeType) === -1) return;
 
   props.setProperty('dmf_actualizando', '1');
@@ -117,7 +126,7 @@ function getRegistros_() {
 
   const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
   return values
-    .filter(row => row[2]) 
+    .filter(row => row[2])
     .map(row => {
       const f = row[1] instanceof Date ? row[1] : new Date(row[1]);
       let mk = '';
@@ -137,6 +146,11 @@ function getRegistros_() {
 }
 
 function escribirBloque_(sheet, colStart, asesorNombre, filas, separatorRows) {
+  // Asegurar que el sheet tiene suficientes filas y columnas ANTES de escribir
+  const filasNecesarias = 2 + Math.max(filas.length, 1);
+  const colsNecesarias = colStart + 3;
+  asegurarDimensiones_(sheet, filasNecesarias, colsNecesarias);
+
   sheet.getRange(1, colStart, 1, 2).merge().setValue(asesorNombre)
     .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('left').setFontColor('#5E7975');
 
@@ -151,12 +165,12 @@ function escribirBloque_(sheet, colStart, asesorNombre, filas, separatorRows) {
     sheet.getRange(3, colStart, filas.length, 4).setValues(filas);
     sheet.getRange(3, colStart + 1, filas.length, 1).setNumberFormat('dd/mm/yy');
     sheet.getRange(3, colStart + 3, filas.length, 1).setFontWeight('bold');
-    
+
     if (separatorRows && separatorRows.length > 0) {
       separatorRows.forEach(rowOffset => {
         const rowRange = sheet.getRange(3 + rowOffset, colStart, 1, 4);
         rowRange.setBackground('#EAF0EE').setFontWeight('bold').setFontColor('#0F7A6E');
-        sheet.getRange(3 + rowOffset, colStart + 1).setNumberFormat('@'); // Texto normal para que no intente ser fecha
+        sheet.getRange(3 + rowOffset, colStart + 1).setNumberFormat('@');
       });
     }
   }
@@ -174,19 +188,22 @@ function generarVistaPorAsesor() {
   sheet.clear();
 
   const registros = getRegistros_().filter(r => r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—');
-  
-  // Agrupar asesores y meses
+
   const asesoresSet = new Set();
   const mesesSet = new Set();
   registros.forEach(r => {
     asesoresSet.add(r.asesor);
-    if(r.mesKey) mesesSet.add(r.mesKey);
+    if (r.mesKey) mesesSet.add(r.mesKey);
   });
-  
+
   const asesores = Array.from(asesoresSet).sort();
   const mesesGlobales = Array.from(mesesSet).sort();
-  
-  // Calcular el maximo de filas que ocupará cada mes
+
+  if (asesores.length === 0) {
+    sheet.setFrozenRows(2);
+    return;
+  }
+
   const maxPorMes = {};
   mesesGlobales.forEach(m => {
     let max = 0;
@@ -201,49 +218,51 @@ function generarVistaPorAsesor() {
   const GAP = 1;
   let colStart = 1;
 
+  // Pre-calcular el máximo de filas que necesitará cualquier asesor
+  let maxFilasGlobal = 1;
+  asesores.forEach(asesor => {
+    let cuenta = 0;
+    mesesGlobales.forEach((mesKey, index) => {
+      if (index > 0) cuenta++; // fila separador entre meses
+      cuenta++; // fila de título de mes
+      cuenta += maxPorMes[mesKey]; // filas de pacientes (max por mes para alinear)
+    });
+    if (cuenta > maxFilasGlobal) maxFilasGlobal = cuenta;
+  });
+
+  // Expandir el sheet antes de empezar a escribir
+  const colsTotales = asesores.length * (BLOCK_COLS + GAP);
+  const filasTotales = 2 + maxFilasGlobal;
+  asegurarDimensiones_(sheet, filasTotales, colsTotales);
+
   asesores.forEach(asesor => {
     let filasFinales = [];
     let separatorRows = [];
 
     mesesGlobales.forEach((mesKey, index) => {
       const rowsMes = registros.filter(r => r.asesor === asesor && r.mesKey === mesKey).sort((a,b) => a.fecha - b.fecha);
-      
+
       const [anio, mesNum] = mesKey.split('-');
       const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1].toUpperCase() + ' ' + anio;
-      
-      // Espacio en blanco antes de un nuevo mes (para que no pegue)
+
       if (index > 0) {
         filasFinales.push(['', '', '', '']);
       }
 
       separatorRows.push(filasFinales.length);
       filasFinales.push([`--- ${nombreMes} ---`, '', '', `${rowsMes.length} pac.`]);
-      
+
       rowsMes.forEach(r => {
         filasFinales.push([r.nombre, r.fecha, r.clinicaCorta, asesor.toUpperCase()]);
       });
-      
-      // Rellenar con vacíos para alinear horizontalmente con los demás
+
       const padding = maxPorMes[mesKey] - rowsMes.length;
       for (let i = 0; i < padding; i++) {
         filasFinales.push(['', '', '', '']);
       }
     });
 
-    // ✅ FIX: evitar error "coordinates outside sheet dimensions" cuando no hay filas
-    if (filasFinales.length > 0) {
-      escribirBloque_(sheet, colStart, asesor.toUpperCase(), filasFinales, separatorRows);
-    } else {
-      sheet.getRange(1, colStart, 1, 2).merge().setValue(asesor.toUpperCase())
-        .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('left').setFontColor('#5E7975');
-      const hdrs = ['NOMBRE DEL PACIENTE', 'FECHA', 'SUCURSAL', 'ASESOR'];
-      sheet.getRange(2, colStart, 1, 4).setValues([hdrs])
-        .setBackground('#B7CDEF').setFontWeight('bold').setHorizontalAlignment('center');
-      sheet.setColumnWidth(colStart, 220);
-      sheet.setColumnWidth(colStart + 1, 80);
-      sheet.setColumnWidth(colStart + 2, 110);
-      sheet.setColumnWidth(colStart + 3, 100);
-    }
+    escribirBloque_(sheet, colStart, asesor.toUpperCase(), filasFinales, separatorRows);
     colStart += BLOCK_COLS + GAP;
   });
 
@@ -251,6 +270,11 @@ function generarVistaPorAsesor() {
 }
 
 function escribirBloqueClinica_(sheet, colStart, clinicaNombre, filas, header3, separatorRows) {
+  // Asegurar que el sheet tiene suficientes filas y columnas ANTES de escribir
+  const filasNecesarias = 2 + Math.max(filas.length, 1);
+  const colsNecesarias = colStart + 2;
+  asegurarDimensiones_(sheet, filasNecesarias, colsNecesarias);
+
   sheet.getRange(1, colStart, 1, 2).merge().setValue(clinicaNombre)
     .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left').setFontColor('#5E7975');
 
@@ -265,7 +289,7 @@ function escribirBloqueClinica_(sheet, colStart, clinicaNombre, filas, header3, 
     sheet.getRange(3, colStart, filas.length, 3).setValues(filas);
     sheet.getRange(3, colStart + 1, filas.length, 1).setNumberFormat('dd/mm/yy');
     sheet.getRange(3, colStart + 2, filas.length, 1).setFontWeight('bold');
-    
+
     if (separatorRows && separatorRows.length > 0) {
       separatorRows.forEach(rowOffset => {
         const rowRange = sheet.getRange(3 + rowOffset, colStart, 1, 3);
@@ -291,16 +315,21 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
     const valores = String(r.origen).split(',').map(s => s.trim());
     return valores.includes(origen);
   });
-  
+
   const clinicasSet = new Set();
   const mesesSet = new Set();
   registros.forEach(r => {
     clinicasSet.add(r.clinicaCorta);
-    if(r.mesKey) mesesSet.add(r.mesKey);
+    if (r.mesKey) mesesSet.add(r.mesKey);
   });
 
   const clinicasOrdenadas = Array.from(clinicasSet).sort();
   const mesesGlobales = Array.from(mesesSet).sort();
+
+  if (clinicasOrdenadas.length === 0) {
+    sheet.setFrozenRows(2);
+    return;
+  }
 
   const maxPorMes = {};
   mesesGlobales.forEach(m => {
@@ -317,24 +346,39 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
   let colStart = 1;
   const header3 = origen === 'Cuenta propia' ? 'CLÍNICA' : 'ORIGEN';
 
+  // Pre-calcular y expandir el sheet antes de escribir
+  let maxFilasGlobal = 1;
+  clinicasOrdenadas.forEach(clinica => {
+    let cuenta = 0;
+    mesesGlobales.forEach((mesKey, index) => {
+      if (index > 0) cuenta++;
+      cuenta++;
+      cuenta += maxPorMes[mesKey];
+    });
+    if (cuenta > maxFilasGlobal) maxFilasGlobal = cuenta;
+  });
+
+  const colsTotales = clinicasOrdenadas.length * (BLOCK_COLS + GAP);
+  const filasTotales = 2 + maxFilasGlobal;
+  asegurarDimensiones_(sheet, filasTotales, colsTotales);
+
   clinicasOrdenadas.forEach(clinica => {
     let filasFinales = [];
     let separatorRows = [];
 
     mesesGlobales.forEach((mesKey, index) => {
       const rowsMes = registros.filter(r => r.clinicaCorta === clinica && r.mesKey === mesKey).sort((a,b) => a.fecha - b.fecha);
-      
+
       const [anio, mesNum] = mesKey.split('-');
       const nombreMes = MESES_ES[parseInt(mesNum, 10) - 1].toUpperCase() + ' ' + anio;
-      
-      // Espacio en blanco antes de un nuevo mes
+
       if (index > 0) {
         filasFinales.push(['', '', '']);
       }
 
       separatorRows.push(filasFinales.length);
       filasFinales.push([`--- ${nombreMes} ---`, '', `${rowsMes.length} pac.`]);
-      
+
       rowsMes.forEach(r => {
         const tieneAsesor = r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—';
         const valorCol3 = origen === 'Cuenta propia'
@@ -343,26 +387,13 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
         filasFinales.push([r.nombre, r.fecha, valorCol3]);
       });
 
-      // Rellenar con vacíos
       const padding = maxPorMes[mesKey] - rowsMes.length;
       for (let i = 0; i < padding; i++) {
         filasFinales.push(['', '', '']);
       }
     });
 
-    // ✅ FIX: evitar error "coordinates outside sheet dimensions" cuando no hay filas
-    if (filasFinales.length > 0) {
-      escribirBloqueClinica_(sheet, colStart, clinica, filasFinales, header3, separatorRows);
-    } else {
-      sheet.getRange(1, colStart, 1, 2).merge().setValue(clinica)
-        .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left').setFontColor('#5E7975');
-      const hdrs = ['NOMBRE DEL PACIENTE', 'FECHA', header3];
-      sheet.getRange(2, colStart, 1, 3).setValues([hdrs])
-        .setBackground('#B7CDEF').setFontWeight('bold').setHorizontalAlignment('center');
-      sheet.setColumnWidth(colStart, 220);
-      sheet.setColumnWidth(colStart + 1, 80);
-      sheet.setColumnWidth(colStart + 2, 170);
-    }
+    escribirBloqueClinica_(sheet, colStart, clinica, filasFinales, header3, separatorRows);
     colStart += BLOCK_COLS + GAP;
   });
 
@@ -393,26 +424,31 @@ function contarPor_(lista, keyFn) {
 
 function escribirSeccionResumen_(sheet, colStart, rowStart, titulo, conteoObj) {
   let row = rowStart;
+  // Asegurar espacio suficiente
+  const claves = Object.keys(conteoObj);
+  const filasNecesarias = rowStart + claves.length + 3;
+  asegurarDimensiones_(sheet, filasNecesarias, colStart + 1);
+
   sheet.getRange(row, colStart, 1, 2).merge().setValue(titulo)
     .setBackground('#B7CDEF').setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center');
   row++;
 
-  const claves = Object.keys(conteoObj).sort();
-  if (claves.length === 0) {
+  const clavesOrdenadas = claves.sort();
+  if (clavesOrdenadas.length === 0) {
     sheet.getRange(row, colStart).setValue('— sin datos —').setFontColor('#8CA3A0').setFontStyle('italic');
     row++;
   } else {
-    claves.forEach(k => {
+    clavesOrdenadas.forEach(k => {
       sheet.getRange(row, colStart).setValue(k);
       sheet.getRange(row, colStart + 1).setValue(conteoObj[k]).setHorizontalAlignment('center').setFontWeight('bold');
       row++;
     });
-    const total = claves.reduce((sum, k) => sum + conteoObj[k], 0);
+    const total = clavesOrdenadas.reduce((sum, k) => sum + conteoObj[k], 0);
     sheet.getRange(row, colStart).setValue('TOTAL').setFontWeight('bold').setBackground('#EAF0EE');
     sheet.getRange(row, colStart + 1).setValue(total).setFontWeight('bold').setHorizontalAlignment('center').setBackground('#EAF0EE');
     row++;
   }
-  return row + 1; 
+  return row + 1;
 }
 
 function generarResumenMensual() {
@@ -430,8 +466,11 @@ function generarResumenMensual() {
   });
 
   const mesesOrdenados = Object.keys(porMes).sort();
-  const BLOCK_COLS = 3; 
+  const BLOCK_COLS = 3;
   let colStart = 1;
+
+  // Expandir columnas necesarias
+  asegurarDimensiones_(sheet, 60, mesesOrdenados.length * BLOCK_COLS + 2);
 
   mesesOrdenados.forEach(mesKey => {
     const grupo = porMes[mesKey];
@@ -650,17 +689,17 @@ function marcarAsistencia_(data) {
     const cita = {};
     CITAS_HEADERS.forEach((h, i) => { cita[h] = rowVals[i]; });
 
-      const asesor = cita['Asesor'];
-      const origen = (asesor && asesor !== '') ? 'Por asesor' : 'Cuenta propia';
+    const asesor = cita['Asesor'];
+    const origen = (asesor && asesor !== '') ? 'Por asesor' : 'Cuenta propia';
 
-      insertarRegistro_({
-        nombre: cita['Paciente'],
-        clinica: cita['Sucursal'],
-        asesor: asesor,
-        paquete: data.paquete || cita['Paquete'] || 'Individual',
-        origen: origen,
-        fecha: cita['Fecha']
-      });
+    insertarRegistro_({
+      nombre: cita['Paciente'],
+      clinica: cita['Sucursal'],
+      asesor: asesor,
+      paquete: data.paquete || cita['Paquete'] || 'Individual',
+      origen: origen,
+      fecha: cita['Fecha']
+    });
   }
 
   return jsonOutput_({ status: 'ok' });
@@ -674,17 +713,17 @@ function obtenerCitas_(e) {
   const values = sheet.getRange(2, 1, lastRow - 1, CITAS_HEADERS.length).getValues();
   let citas = values.map(row => {
     const obj = {};
-      CITAS_HEADERS.forEach((h, i) => {
-        let v = row[i];
-        if (v instanceof Date) {
-           if (h === 'Hora') {
-             v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'HH:mm');
-           } else {
-             v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
-           }
+    CITAS_HEADERS.forEach((h, i) => {
+      let v = row[i];
+      if (v instanceof Date) {
+        if (h === 'Hora') {
+          v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'HH:mm');
+        } else {
+          v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
         }
-        obj[h] = v;
-      });
+      }
+      obj[h] = v;
+    });
     return obj;
   }).filter(c => c['Paciente']);
 
@@ -703,7 +742,7 @@ const ONESIGNAL_REST_API_KEY = "TU_REST_API_KEY_AQUI";
 function enviarNotificacionOneSignal(nombre, clinica, id) {
   if (!ONESIGNAL_REST_API_KEY || ONESIGNAL_REST_API_KEY === "TU_REST_API_KEY_AQUI") return;
 
-   const payload = {
+  const payload = {
     app_id: ONESIGNAL_APP_ID,
     target_channel: "push",
     included_segments: ["Total Subscriptions"],
