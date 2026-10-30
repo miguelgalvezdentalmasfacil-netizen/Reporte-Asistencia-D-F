@@ -230,7 +230,20 @@ function generarVistaPorAsesor() {
       }
     });
 
-    escribirBloque_(sheet, colStart, asesor.toUpperCase(), filasFinales, separatorRows);
+    if (filasFinales.length > 0) {
+      escribirBloque_(sheet, colStart, asesor.toUpperCase(), filasFinales, separatorRows);
+    } else {
+      // Sin registros: escribir solo el encabezado del asesor
+      sheet.getRange(1, colStart, 1, 2).merge().setValue(asesor.toUpperCase())
+        .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('left').setFontColor('#5E7975');
+      const headers = ['NOMBRE DEL PACIENTE', 'FECHA', 'SUCURSAL', 'ASESOR'];
+      sheet.getRange(2, colStart, 1, 4).setValues([headers])
+        .setBackground('#B7CDEF').setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.setColumnWidth(colStart, 220);
+      sheet.setColumnWidth(colStart + 1, 80);
+      sheet.setColumnWidth(colStart + 2, 110);
+      sheet.setColumnWidth(colStart + 3, 100);
+    }
     colStart += BLOCK_COLS + GAP;
   });
 
@@ -340,7 +353,19 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
       }
     });
 
-    escribirBloqueClinica_(sheet, colStart, clinica, filasFinales, header3, separatorRows);
+    if (filasFinales.length > 0) {
+      escribirBloqueClinica_(sheet, colStart, clinica, filasFinales, header3, separatorRows);
+    } else {
+      // Sin registros: escribir solo el encabezado de la clínica
+      sheet.getRange(1, colStart, 1, 2).merge().setValue(clinica)
+        .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left').setFontColor('#5E7975');
+      const headers = ['NOMBRE DEL PACIENTE', 'FECHA', header3];
+      sheet.getRange(2, colStart, 1, 3).setValues([headers])
+        .setBackground('#B7CDEF').setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.setColumnWidth(colStart, 220);
+      sheet.setColumnWidth(colStart + 1, 80);
+      sheet.setColumnWidth(colStart + 2, 170);
+    }
     colStart += BLOCK_COLS + GAP;
   });
 
@@ -569,6 +594,7 @@ function doGet(e) {
 }
 
 
+function getOrCreateCitasSheet_() {
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CITAS);
   if (!sheet) {
     sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(SHEET_CITAS);
