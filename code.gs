@@ -230,14 +230,14 @@ function generarVistaPorAsesor() {
       }
     });
 
+    // ✅ FIX: evitar error "coordinates outside sheet dimensions" cuando no hay filas
     if (filasFinales.length > 0) {
       escribirBloque_(sheet, colStart, asesor.toUpperCase(), filasFinales, separatorRows);
     } else {
-      // Sin registros: escribir solo el encabezado del asesor
       sheet.getRange(1, colStart, 1, 2).merge().setValue(asesor.toUpperCase())
         .setFontWeight('bold').setFontSize(10).setHorizontalAlignment('left').setFontColor('#5E7975');
-      const headers = ['NOMBRE DEL PACIENTE', 'FECHA', 'SUCURSAL', 'ASESOR'];
-      sheet.getRange(2, colStart, 1, 4).setValues([headers])
+      const hdrs = ['NOMBRE DEL PACIENTE', 'FECHA', 'SUCURSAL', 'ASESOR'];
+      sheet.getRange(2, colStart, 1, 4).setValues([hdrs])
         .setBackground('#B7CDEF').setFontWeight('bold').setHorizontalAlignment('center');
       sheet.setColumnWidth(colStart, 220);
       sheet.setColumnWidth(colStart + 1, 80);
@@ -337,13 +337,10 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
       
       rowsMes.forEach(r => {
         const tieneAsesor = r.asesor && r.asesor !== 'Sin asignar' && r.asesor !== '—';
-        let val3 = clinica;
-        if (origen === 'Cuenta propia' && String(r.origen).includes('Doctoralia')) {
-          val3 = clinica + ' (Doctoralia)';
-        } else if (origen !== 'Cuenta propia') {
-          val3 = tieneAsesor ? 'Asesor: ' + r.asesor.toUpperCase() : 'Cuenta propia (clínica)';
-        }
-        filasFinales.push([r.nombre, r.fecha, val3]);
+        const valorCol3 = origen === 'Cuenta propia'
+          ? clinica
+          : (tieneAsesor ? 'Asesor: ' + r.asesor.toUpperCase() : 'Cuenta propia (clínica)');
+        filasFinales.push([r.nombre, r.fecha, valorCol3]);
       });
 
       // Rellenar con vacíos
@@ -353,14 +350,14 @@ function generarVistaPorOrigen_(nombreHoja, origen) {
       }
     });
 
+    // ✅ FIX: evitar error "coordinates outside sheet dimensions" cuando no hay filas
     if (filasFinales.length > 0) {
       escribirBloqueClinica_(sheet, colStart, clinica, filasFinales, header3, separatorRows);
     } else {
-      // Sin registros: escribir solo el encabezado de la clínica
       sheet.getRange(1, colStart, 1, 2).merge().setValue(clinica)
         .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left').setFontColor('#5E7975');
-      const headers = ['NOMBRE DEL PACIENTE', 'FECHA', header3];
-      sheet.getRange(2, colStart, 1, 3).setValues([headers])
+      const hdrs = ['NOMBRE DEL PACIENTE', 'FECHA', header3];
+      sheet.getRange(2, colStart, 1, 3).setValues([hdrs])
         .setBackground('#B7CDEF').setFontWeight('bold').setHorizontalAlignment('center');
       sheet.setColumnWidth(colStart, 220);
       sheet.setColumnWidth(colStart + 1, 80);
@@ -524,10 +521,8 @@ function insertarRegistro_(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   const id = data.id || Date.now();
 
-  // 1. PRIMERO dispara la notificación a tu celular (inmediato)
   enviarNotificacionOneSignal(data.nombre || 'Paciente', data.clinica || 'Clínica no especificada', id);
 
-  // 2. LUEGO guarda el registro en Google Sheets
   sheet.appendRow([
     id,
     data.fecha || '',
@@ -539,9 +534,7 @@ function insertarRegistro_(data) {
     new Date()
   ]);
 
-  // 3. HASTA EL FINAL actualiza las tablas (el paso más pesado y lento)
   actualizarVistas();
-
   return id;
 }
 
@@ -592,7 +585,6 @@ function doGet(e) {
 
   return jsonOutput_(records);
 }
-
 
 function getOrCreateCitasSheet_() {
   let sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_CITAS);
